@@ -1,0 +1,4 @@
+frontend/src/components/* text eol=lf
+frontend/src/* text eol=lf
+*.jsx text eol=lf
+*.js text eol=lf
