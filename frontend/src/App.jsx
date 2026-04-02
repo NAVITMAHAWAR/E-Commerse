@@ -20,7 +20,7 @@ import ResetPassword from "./pages/ResetPassword";
 import CategoryPage from "./pages/Category";
 import Deals from "./pages/Deals";
 import Shop from "./pages/Shop";
-import AIAssistant from "./components/AiAssistant";
+import AIAssistant from "./components/AIAssistant";
 const App = () => {
   return (
     <>
