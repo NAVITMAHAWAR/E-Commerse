@@ -1,0 +1,10 @@
+{
+	"configurations": [
+		{
+			"type": "chrome",
+			"name": "http://AdminOrders.jsx?t=1771493064080:11  GET http://localhost:3000/api/my 404 (Not Found)Promise.then\t\tfetchOrders\t@\tAdminOrders.jsx?t=1771493064080:11(anonymous)\t@\tAdminOrders.jsx?t=1771493064080:15<AdminOrders>\t\tApp\t@\tApp.jsx:60<App>\t\t(anonymous)\t@\tmain.jsx:16AdminOrders.jsx?t=1771493064080:11  GET http://localhost:3000/api/my 404 (Not Found)Promise.then\t\tfetchOrders\t@\tAdminOrders.jsx?t=1771493064080:11(anonymous)\t@\tAdminOrders.jsx?t=1771493064080:15<AdminOrders>\t\tApp\t@\tApp.jsx:60<App>\t\t(anonymous)\t@\tmain.jsx:16AdminOrders.jsx?t=1771493064080:14 Uncaught (in promise) AxiosError: Request failed with status code 404    at async fetchOrders (AdminOrders.jsx?t=1771493064080:11:24)AdminOrders.jsx?t=1771493064080:14 Uncaught (in promise) AxiosError: Request failed with status code 404    at async fetchOrders (AdminOrders.jsx?t=1771493064080:11:24)﻿",
+			"request": "launch",
+			"url": "http://AdminOrders.jsx?t=1771493064080:11  GET http://localhost:3000/api/my 404 (Not Found)Promise.then\t\tfetchOrders\t@\tAdminOrders.jsx?t=1771493064080:11(anonymous)\t@\tAdminOrders.jsx?t=1771493064080:15<AdminOrders>\t\tApp\t@\tApp.jsx:60<App>\t\t(anonymous)\t@\tmain.jsx:16AdminOrders.jsx?t=1771493064080:11  GET http://localhost:3000/api/my 404 (Not Found)Promise.then\t\tfetchOrders\t@\tAdminOrders.jsx?t=1771493064080:11(anonymous)\t@\tAdminOrders.jsx?t=1771493064080:15<AdminOrders>\t\tApp\t@\tApp.jsx:60<App>\t\t(anonymous)\t@\tmain.jsx:16AdminOrders.jsx?t=1771493064080:14 Uncaught (in promise) AxiosError: Request failed with status code 404    at async fetchOrders (AdminOrders.jsx?t=1771493064080:11:24)AdminOrders.jsx?t=1771493064080:14 Uncaught (in promise) AxiosError: Request failed with status code 404    at async fetchOrders (AdminOrders.jsx?t=1771493064080:11:24)﻿"
+		}
+	]
+}
