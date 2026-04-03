@@ -9,7 +9,7 @@ const productRoutes = require("./routes/productRoutes");
 const orderRoutes = require("./routes/orderRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const googleauth = require("./routes/authRoutes");
-const aiAgentRoute = require("./routes/aiAgent")
+const aiAgentRoute = require("./routes/aiAgent");
 
 // server.js ya index.js ke top pe
 app.use("/uploads", express.static("uploads"));
@@ -23,7 +23,7 @@ app.get("/", (req, res) => {
 
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: ["http://localhost:5173", "https://e-commerse-r1v7.vercel.app"],
     credentials: true,
   }),
 );
@@ -32,8 +32,8 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/orders", orderRoutes);
-app.use('/api/auth',googleauth );
-app.use("/api/ai",aiAgentRoute)
+app.use("/api/auth", googleauth);
+app.use("/api/ai", aiAgentRoute);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
