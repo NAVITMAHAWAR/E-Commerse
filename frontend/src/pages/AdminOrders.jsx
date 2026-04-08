@@ -9,6 +9,7 @@ import {
   RefreshCw,
   AlertTriangle,
   ShoppingBag,
+  Truck,
 } from "lucide-react";
 
 const AdminOrders = () => {
@@ -52,6 +53,28 @@ const AdminOrders = () => {
       );
     } catch (err) {
       toast.error("Failed to update order status");
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const updateStatus = async (id, status) => {
+    if (processingId === id) return;
+
+    setProcessingId(id);
+    try {
+      await api.put(`/orders/${id}/status`, { status });
+      toast.success(`Status updated to ${status}`);
+
+      setOrders((prev) =>
+        prev.map((o) =>
+          o._id === id
+            ? { ...o, status, isDelivered: status === "Delivered" }
+            : o,
+        ),
+      );
+    } catch (err) {
+      toast.error("Failed to update status");
     } finally {
       setProcessingId(null);
     }
@@ -186,12 +209,13 @@ const AdminOrders = () => {
 
                       <span
                         className={`px-6 py-2 rounded-full text-sm font-semibold shadow-sm ${
-                          order.isDelivered
-                            ? "bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300"
+                          order.status === "Delivered" || order.isDelivered
+                            ? "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300"
                             : "bg-orange-100 text-orange-800 dark:bg-orange-900/50 dark:text-orange-300"
                         }`}
                       >
-                        {order.isDelivered ? "Delivered" : "Processing"}
+                        {order.status ||
+                          (order.isDelivered ? "Delivered" : "Processing")}
                       </span>
                     </div>
                   </div>
@@ -214,36 +238,57 @@ const AdminOrders = () => {
                   </div>
                 </div>
 
-                {/* Action Button */}
+                {/* Status Update Buttons */}
                 <div className="p-6 lg:p-8 bg-gradient-to-b from-transparent to-gray-50/50 dark:to-gray-800/30">
-                  {!order.isDelivered ? (
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={() => markDelivered(order._id)}
-                      disabled={processingId === order._id}
-                      className={`w-full md:w-auto px-10 py-4 rounded-2xl font-semibold text-white transition-all flex items-center justify-center gap-3 shadow-lg ${
-                        processingId === order._id
-                          ? "bg-gray-500 cursor-not-allowed"
-                          : "bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 hover:shadow-xl"
-                      }`}
-                    >
-                      {processingId === order._id ? (
-                        <>
-                          <Loader2 className="w-5 h-5 animate-spin" />
-                          Processing...
-                        </>
-                      ) : (
-                        <>
-                          <CheckCircle className="w-5 h-5" />
-                          Mark as Delivered
-                        </>
-                      )}
-                    </motion.button>
-                  ) : (
+                  {order.isDelivered || order.status === "Delivered" ? (
                     <div className="w-full md:w-auto px-10 py-4 rounded-2xl font-semibold bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300 text-center flex items-center justify-center gap-3">
                       <CheckCircle className="w-5 h-5" />
-                      Already Delivered
+                      Delivered ✅
+                    </div>
+                  ) : (
+                    <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                      {[
+                        {
+                          label: "Processing",
+                          Icon: Clock,
+                          color: "from-orange-500 to-orange-600",
+                          hoverColor: "from-orange-600 to-orange-700",
+                        },
+                        {
+                          label: "Shipped",
+                          Icon: Truck,
+                          color: "from-blue-500 to-blue-600",
+                          hoverColor: "from-blue-600 to-blue-700",
+                        },
+                        {
+                          label: "Out for Delivery",
+                          Icon: Truck,
+                          color: "from-purple-500 to-purple-600",
+                          hoverColor: "from-purple-600 to-purple-700",
+                        },
+                        {
+                          label: "Delivered",
+                          Icon: CheckCircle,
+                          color: "from-green-500 to-emerald-600",
+                          hoverColor: "from-green-600 to-emerald-700",
+                        },
+                      ].map(({ label, Icon, color, hoverColor }) => (
+                        <motion.button
+                          key={label}
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={() => updateStatus(order._id, label)}
+                          disabled={processingId === order._id}
+                          className={`flex-1 px-4 py-3 rounded-xl font-semibold text-white shadow-lg transition-all flex items-center justify-center gap-2 text-sm hover:shadow-xl disabled:opacity-60 disabled:cursor-not-allowed bg-gradient-to-r ${color} hover:bg-gradient-to-r ${hoverColor}`}
+                        >
+                          {processingId === order._id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Icon className="w-4 h-4" />
+                          )}
+                          {label}
+                        </motion.button>
+                      ))}
                     </div>
                   )}
                 </div>

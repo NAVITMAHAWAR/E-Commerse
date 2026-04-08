@@ -1,1012 +1,1161 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Link } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import {
+  motion,
+  AnimatePresence,
+  useScroll,
+  useTransform,
+} from "framer-motion";
 import { getProducts } from "../api/productApi";
 import { useCart } from "../context/CartContext";
 import toast, { Toaster } from "react-hot-toast";
 
-// ============================================
-// CONFIGURATION & UTILITIES
-// ============================================
+// ── Font + Global Styles ──────────────────────────────────
+const GlobalStyles = () => (
+  <style>{`
+    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Outfit:wght@300;400;500;600;700&display=swap');
 
-// Animation variants
-const fadeInUp = {
-  hidden: { opacity: 0, y: 40 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } },
-};
+    :root {
+      --c-bg: #080810;
+      --c-surface: #0f0f1a;
+      --c-card: #13131f;
+      --c-border: rgba(255,255,255,0.07);
+      --c-gold: #d4a853;
+      --c-gold-lt: #f0c97a;
+      --c-accent: #7c6af7;
+      --c-accent2: #e85d9c;
+      --c-text: #f0ede8;
+      --c-muted: #7a7891;
+      --font-display: 'Playfair Display', serif;
+      --font-body: 'Outfit', sans-serif;
+    }
 
-const staggerContainer = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.1 },
-  },
-};
+    .h-root { background: var(--c-bg); color: var(--c-text); font-family: var(--font-body); overflow-x: hidden; }
+    .h-root * { box-sizing: border-box; }
 
-const cardHover = {
-  rest: { y: 0, scale: 1 },
-  hover: {
-    y: -12,
-    scale: 1.02,
-    transition: { type: "spring", stiffness: 400, damping: 25 },
-  },
-};
+    /* Scrollbar */
+    .h-root ::-webkit-scrollbar { width: 4px; }
+    .h-root ::-webkit-scrollbar-track { background: var(--c-bg); }
+    .h-root ::-webkit-scrollbar-thumb { background: var(--c-gold); border-radius: 4px; }
 
-// Image error handler with fallback
-const getImageUrl = (image, index = 0) => {
-  if (image) return image;
-  const categories = [
+    /* ── TICKER ─────────────────────────────────────── */
+    .ticker-wrap { background: var(--c-gold); overflow: hidden; height: 36px; display: flex; align-items: center; }
+    .ticker-inner { display: flex; gap: 0; white-space: nowrap; animation: ticker 30s linear infinite; }
+    .ticker-item { font-family: var(--font-body); font-size: 11px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; color: #0a0a14; padding: 0 2.5rem; }
+    @keyframes ticker { from { transform: translateX(0) } to { transform: translateX(-50%) } }
+
+    /* ── HERO SLIDER ────────────────────────────────── */
+    .hero-slide { position: absolute; inset: 0; }
+    .hero-img { width: 100%; height: 100%; object-fit: cover; transform-origin: center; }
+    .hero-overlay { position: absolute; inset: 0; background: linear-gradient(110deg, rgba(8,8,16,0.85) 35%, rgba(8,8,16,0.3) 100%); }
+    .slide-counter { position: absolute; right: 2.5rem; bottom: 2.5rem; font-size: 11px; letter-spacing: 0.2em; color: rgba(240,237,232,0.5); font-family: var(--font-body); }
+    .slide-dots { position: absolute; left: 50%; bottom: 2rem; transform: translateX(-50%); display: flex; gap: 8px; }
+    .slide-dot { width: 28px; height: 2px; background: rgba(255,255,255,0.3); cursor: pointer; transition: all 0.4s; }
+    .slide-dot.active { background: var(--c-gold); width: 52px; }
+    .hero-nav { position: absolute; top: 50%; transform: translateY(-50%); width: 44px; height: 44px; border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.4); backdrop-filter: blur(10px); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.3s; color: white; }
+    .hero-nav:hover { border-color: var(--c-gold); color: var(--c-gold); }
+    .hero-nav-l { left: 1.5rem; }
+    .hero-nav-r { right: 1.5rem; }
+
+    /* ── SECTION STYLES ─────────────────────────────── */
+    .section { padding: 5rem 0; }
+    .container { max-width: 1280px; margin: 0 auto; padding: 0 2rem; }
+
+    .sec-eyebrow { font-size: 10px; letter-spacing: 0.35em; text-transform: uppercase; color: var(--c-gold); margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.6rem; }
+    .sec-eyebrow::before { content: ''; width: 28px; height: 1px; background: var(--c-gold); }
+    .sec-title { font-family: var(--font-display); font-size: clamp(2rem, 5vw, 3.2rem); font-weight: 700; line-height: 1.1; letter-spacing: -0.02em; }
+    .sec-title em { font-style: italic; color: var(--c-gold); }
+
+    /* ── BENEFITS ───────────────────────────────────── */
+    .benefits-grid { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--c-border); }
+    @media (max-width: 768px) { .benefits-grid { grid-template-columns: repeat(2, 1fr); } }
+    .benefit-item { padding: 1.8rem 1.5rem; border-right: 1px solid var(--c-border); display: flex; align-items: center; gap: 1rem; transition: background 0.3s; }
+    .benefit-item:last-child { border-right: none; }
+    .benefit-item:hover { background: rgba(212,168,83,0.05); }
+    .benefit-icon { width: 44px; height: 44px; border: 1px solid var(--c-border); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+    .benefit-title { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+    .benefit-sub { font-size: 11px; color: var(--c-muted); letter-spacing: 0.03em; }
+
+    /* ── CATEGORIES ─────────────────────────────────── */
+    .cat-grid { display: grid; grid-template-columns: 2fr 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 2px; height: 580px; }
+    @media (max-width: 768px) { .cat-grid { grid-template-columns: 1fr 1fr; grid-template-rows: auto; height: auto; } }
+    .cat-card { position: relative; overflow: hidden; cursor: pointer; }
+    .cat-card:first-child { grid-row: 1 / 3; }
+    .cat-img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.7s ease; }
+    .cat-card:hover .cat-img { transform: scale(1.07); }
+    .cat-overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(8,8,16,0.8) 0%, transparent 60%); }
+    .cat-label { position: absolute; bottom: 0; left: 0; right: 0; padding: 1.5rem; }
+    .cat-name { font-family: var(--font-display); font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem; }
+    .cat-cta { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--c-gold); border-bottom: 1px solid transparent; transition: border-color 0.3s; }
+    .cat-card:hover .cat-cta { border-color: var(--c-gold); }
+
+    /* ── PRODUCT CARD ───────────────────────────────── */
+    .prod-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--c-border); border: 1px solid var(--c-border); }
+    @media (max-width: 1024px) { .prod-grid { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 640px) { .prod-grid { grid-template-columns: repeat(2, 1fr); } }
+
+    .prod-card { background: var(--c-card); position: relative; cursor: pointer; transition: background 0.3s; }
+    .prod-card:hover { background: #1a1a28; }
+    .prod-thumb { position: relative; overflow: hidden; aspect-ratio: 3/4; }
+    .prod-img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.6s ease; }
+    .prod-card:hover .prod-img { transform: scale(1.06); }
+    .prod-badges { position: absolute; top: 12px; left: 12px; display: flex; flex-direction: column; gap: 5px; }
+    .badge { font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase; padding: 3px 10px; font-weight: 700; }
+    .badge-off { background: var(--c-accent2); color: white; }
+    .badge-new { background: var(--c-gold); color: #0a0a14; }
+    .prod-wish { position: absolute; top: 10px; right: 10px; width: 34px; height: 34px; background: rgba(8,8,16,0.7); backdrop-filter: blur(6px); border: 1px solid var(--c-border); display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s; cursor: pointer; color: var(--c-text); }
+    .prod-card:hover .prod-wish { opacity: 1; }
+    .prod-wish:hover { color: var(--c-accent2); border-color: var(--c-accent2); }
+    .prod-actions { position: absolute; bottom: 0; left: 0; right: 0; display: flex; transform: translateY(100%); transition: transform 0.35s ease; }
+    .prod-card:hover .prod-actions { transform: translateY(0); }
+    .prod-action-btn { flex: 1; padding: 10px; font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; font-weight: 600; border: none; cursor: pointer; transition: background 0.2s; font-family: var(--font-body); }
+    .btn-view { background: rgba(20,20,32,0.9); color: var(--c-text); border-right: 1px solid var(--c-border); }
+    .btn-view:hover { background: var(--c-surface); }
+    .btn-cart { background: var(--c-gold); color: #0a0a14; }
+    .btn-cart:hover { background: var(--c-gold-lt); }
+
+    .prod-info { padding: 1rem 1.2rem 1.2rem; }
+    .prod-name { font-size: 13px; font-weight: 500; margin-bottom: 6px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .prod-price-row { display: flex; align-items: baseline; gap: 8px; }
+    .prod-price { font-family: var(--font-display); font-size: 1.1rem; font-weight: 700; color: var(--c-gold); }
+    .prod-orig { font-size: 11px; color: var(--c-muted); text-decoration: line-through; }
+    .prod-rating { display: flex; align-items: center; gap: 4px; margin-top: 4px; }
+    .star { color: var(--c-gold); font-size: 11px; }
+    .rating-count { font-size: 10px; color: var(--c-muted); }
+
+    /* ── DEAL CARD ──────────────────────────────────── */
+    .deal-card { background: var(--c-card); border: 1px solid var(--c-border); position: relative; overflow: hidden; }
+    .deal-card::before { content: ''; position: absolute; inset: 0; background: linear-gradient(135deg, rgba(124,106,247,0.07) 0%, transparent 60%); pointer-events: none; }
+    .deal-timer { position: absolute; top: 10px; left: 10px; background: rgba(232,93,156,0.9); backdrop-filter: blur(4px); color: white; font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase; padding: 4px 10px; font-weight: 700; }
+
+    /* ── MARQUEE BRANDS ─────────────────────────────── */
+    .marquee-wrap { overflow: hidden; border-top: 1px solid var(--c-border); border-bottom: 1px solid var(--c-border); padding: 1.5rem 0; }
+    .marquee-inner { display: flex; gap: 0; white-space: nowrap; animation: marquee 20s linear infinite; }
+    .marquee-item { font-family: var(--font-display); font-size: 1.4rem; font-style: italic; color: var(--c-muted); padding: 0 2rem; transition: color 0.3s; }
+    .marquee-item:hover { color: var(--c-gold); }
+    .marquee-sep { color: var(--c-gold); padding: 0 0.5rem; }
+    @keyframes marquee { from { transform: translateX(0) } to { transform: translateX(-50%) } }
+
+    /* ── BANNER ─────────────────────────────────────── */
+    .promo-banner { position: relative; overflow: hidden; background: var(--c-surface); border: 1px solid var(--c-border); display: grid; grid-template-columns: 1fr 1fr; min-height: 320px; }
+    @media (max-width: 768px) { .promo-banner { grid-template-columns: 1fr; } }
+    .promo-left { padding: 3.5rem; display: flex; flex-direction: column; justify-content: center; }
+    .promo-tag { display: inline-block; background: var(--c-accent2); color: white; font-size: 9px; letter-spacing: 0.25em; text-transform: uppercase; padding: 4px 12px; font-weight: 700; margin-bottom: 1.2rem; }
+    .promo-title { font-family: var(--font-display); font-size: clamp(1.8rem, 4vw, 2.8rem); font-weight: 900; line-height: 1.05; margin-bottom: 1rem; }
+    .promo-title span { color: var(--c-gold); }
+    .promo-desc { font-size: 13px; color: var(--c-muted); line-height: 1.7; margin-bottom: 1.8rem; max-width: 360px; }
+    .promo-right { position: relative; overflow: hidden; min-height: 280px; }
+    .promo-right img { width: 100%; height: 100%; object-fit: cover; }
+    .promo-right::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, var(--c-surface) 0%, transparent 25%); }
+
+    /* ── TESTIMONIALS ───────────────────────────────── */
+    .testi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--c-border); border: 1px solid var(--c-border); }
+    @media (max-width: 768px) { .testi-grid { grid-template-columns: 1fr; } }
+    .testi-card { background: var(--c-card); padding: 2rem; position: relative; }
+    .testi-quote { font-family: var(--font-display); font-size: 4rem; line-height: 1; color: var(--c-gold); opacity: 0.3; position: absolute; top: 1rem; right: 1.5rem; }
+    .testi-text { font-size: 13px; line-height: 1.8; color: rgba(240,237,232,0.8); margin-bottom: 1.5rem; font-style: italic; }
+    .testi-author { display: flex; align-items: center; gap: 0.8rem; }
+    .testi-av { width: 38px; height: 38px; background: linear-gradient(135deg, var(--c-accent), var(--c-accent2)); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; }
+    .testi-name { font-size: 13px; font-weight: 600; }
+    .testi-loc { font-size: 10px; color: var(--c-muted); letter-spacing: 0.1em; }
+
+    /* ── NEWSLETTER ─────────────────────────────────── */
+    .nl-section { background: var(--c-surface); border-top: 1px solid var(--c-border); border-bottom: 1px solid var(--c-border); padding: 5rem 0; }
+    .nl-input-row { display: flex; max-width: 500px; border: 1px solid var(--c-border); }
+    .nl-input { flex: 1; background: rgba(255,255,255,0.04); border: none; padding: 1rem 1.4rem; font-family: var(--font-body); font-size: 13px; color: var(--c-text); outline: none; }
+    .nl-input::placeholder { color: var(--c-muted); }
+    .nl-btn { background: var(--c-gold); color: #0a0a14; border: none; padding: 1rem 1.8rem; font-family: var(--font-body); font-size: 11px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; cursor: pointer; transition: background 0.2s; white-space: nowrap; }
+    .nl-btn:hover { background: var(--c-gold-lt); }
+
+    /* ── SKELETON ───────────────────────────────────── */
+    .skel { background: linear-gradient(90deg, var(--c-card) 0%, #1e1e2e 50%, var(--c-card) 100%); background-size: 200% 100%; animation: shimmer 1.5s infinite; }
+    @keyframes shimmer { from { background-position: 200% 0 } to { background-position: -200% 0 } }
+
+    /* ── BUTTONS ────────────────────────────────────── */
+    .btn-gold { display: inline-flex; align-items: center; gap: 0.5rem; background: var(--c-gold); color: #0a0a14; border: none; padding: 0.9rem 2rem; font-family: var(--font-body); font-size: 11px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; cursor: pointer; transition: all 0.2s; text-decoration: none; }
+    .btn-gold:hover { background: var(--c-gold-lt); }
+    .btn-outline { display: inline-flex; align-items: center; gap: 0.5rem; background: transparent; color: var(--c-text); border: 1px solid var(--c-border); padding: 0.9rem 2rem; font-family: var(--font-body); font-size: 11px; font-weight: 600; letter-spacing: 0.2em; text-transform: uppercase; cursor: pointer; transition: all 0.2s; text-decoration: none; }
+    .btn-outline:hover { border-color: var(--c-gold); color: var(--c-gold); }
+
+    /* ── SECTION HEADER ─────────────────────────────── */
+    .sec-header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 2.5rem; }
+    .see-all { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--c-muted); border-bottom: 1px solid var(--c-border); padding-bottom: 2px; text-decoration: none; transition: color 0.2s, border-color 0.2s; }
+    .see-all:hover { color: var(--c-gold); border-color: var(--c-gold); }
+
+    /* ── TRUST BADGES ───────────────────────────────── */
+    .trust-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--c-border); border: 1px solid var(--c-border); }
+    @media (max-width: 640px) { .trust-grid { grid-template-columns: repeat(2, 1fr); } }
+    .trust-item { background: var(--c-card); padding: 2rem 1.5rem; text-align: center; transition: background 0.3s; }
+    .trust-item:hover { background: #1a1a28; }
+    .trust-icon { font-size: 2rem; margin-bottom: 0.8rem; }
+    .trust-title { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+    .trust-sub { font-size: 11px; color: var(--c-muted); }
+
+    /* ── PRODUCT SKELETON ───────────────────────────── */
+    .prod-skel { background: var(--c-card); }
+    .prod-skel-thumb { aspect-ratio: 3/4; }
+    .prod-skel-info { padding: 1rem 1.2rem; display: flex; flex-direction: column; gap: 8px; }
+  `}</style>
+);
+
+// ── Utilities ────────────────────────────────────────────
+const getImageUrl = (img, i = 0) => {
+  if (img) return img;
+  const cats = [
     "shirt",
-    "pant",
-    "tshirt",
     "dress",
     "jacket",
+    "tshirt",
     "shoes",
     "watch",
     "bag",
+    "pants",
   ];
-  return `https://loremflickr.com/600/800/${categories[index % categories.length]}?random=${Math.random()}`;
+  return `https://picsum.photos/600/800?random=${i + 10}`;
 };
 
-// ============================================
-// COMPONENTS
-// ============================================
+const fmt = (n) => Number(n || 0).toLocaleString("en-IN");
+const disc = (p, o) => (o ? Math.round(((o - p) / o) * 100) : 0);
 
-// Enhanced Star Rating with half stars
-const StarRating = ({ rating = 0, showCount = false, reviewCount = 0 }) => {
-  // Validate and sanitize rating - handle undefined, NaN, Infinity, and out-of-range values
-  const sanitizedRating = (() => {
-    if (
-      rating === undefined ||
-      rating === null ||
-      isNaN(rating) ||
-      !isFinite(rating)
-    ) {
-      return 0;
-    }
-    const numRating = Number(rating);
-    if (numRating < 0 || numRating > 5) {
-      return Math.max(0, Math.min(5, numRating));
-    }
-    return numRating;
-  })();
-
-  const fullStars = Math.floor(sanitizedRating);
-  const hasHalf = sanitizedRating % 1 >= 0.5;
-  const emptyStars = Math.max(0, 5 - fullStars - (hasHalf ? 1 : 0));
-
+// ── Stars ────────────────────────────────────────────────
+const Stars = ({ r = 4.5 }) => {
+  const safeRating = Number(r) || 4.5;
+  const stars = Math.round(Math.max(0, Math.min(5, safeRating)));
   return (
-    <div className="flex items-center gap-0.5">
-      {[...Array(fullStars)].map((_, i) => (
-        <svg
-          key={`full-${i}`}
-          className="w-4 h-4 text-yellow-400 fill-current"
-          viewBox="0 0 20 20"
-        >
-          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-        </svg>
-      ))}
-      {hasHalf && (
-        <svg className="w-4 h-4" viewBox="0 0 20 20">
-          <defs>
-            <linearGradient id="halfGradient">
-              <stop offset="50%" stopColor="#fbbf24" />
-              <stop offset="50%" stopColor="#d1d5db" />
-            </linearGradient>
-          </defs>
-          <path
-            fill="url(#halfGradient)"
-            d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
-          />
-        </svg>
-      )}
-      {[...Array(emptyStars)].map((_, i) => (
-        <svg
-          key={`empty-${i}`}
-          className="w-4 h-4 text-gray-300"
-          viewBox="0 0 20 20"
-        >
-          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-        </svg>
-      ))}
-      {showCount && (
-        <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">
-          ({reviewCount} reviews)
+    <div className="prod-rating">
+      {[1, 2, 3, 4, 5].map((i) => (
+        <span key={i} className="star">
+          {i <= stars ? "★" : "☆"}
         </span>
-      )}
+      ))}
+      <span className="rating-count">{safeRating.toFixed(1)}</span>
     </div>
   );
 };
 
-// Skeleton Loader
-const ProductSkeleton = () => (
-  <div className="bg-white dark:bg-gray-900 rounded-2xl overflow-hidden animate-pulse">
-    <div className="aspect-[3/4] bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-800 dark:to-gray-700" />
-    <div className="p-4 space-y-3">
-      <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-3/4" />
-      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2" />
-      <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/3" />
+// ── Skeleton ─────────────────────────────────────────────
+const ProdSkeleton = () => (
+  <div className="prod-skel">
+    <div className="prod-skel-thumb skel" />
+    <div className="prod-skel-info">
+      <div className="skel" style={{ height: 13, borderRadius: 2 }} />
+      <div
+        className="skel"
+        style={{ height: 13, width: "60%", borderRadius: 2 }}
+      />
+      <div
+        className="skel"
+        style={{ height: 18, width: "40%", borderRadius: 2 }}
+      />
     </div>
   </div>
 );
 
-// Category Card
-const CategoryCard = ({ category }) => (
-  <motion.div
-    variants={fadeInUp}
-    initial="hidden"
-    whileInView="visible"
-    viewport={{ once: true }}
-    className="group relative overflow-hidden rounded-3xl aspect-square"
-  >
-    <img
-      src={category.image}
-      alt={category.name}
-      className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-    />
-    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
-    <div className="absolute inset-0 flex flex-col items-center justify-end pb-8">
-      <h3 className="text-2xl md:text-3xl font-bold text-white mb-2">
-        {category.name}
-      </h3>
-      <span className="px-5 py-2 bg-white/20 backdrop-blur-md rounded-full text-white font-medium text-sm opacity-0 group-hover:opacity-100 transform translate-y-4 group-hover:translate-y-0 transition-all duration-300">
-        Shop Now →
-      </span>
-    </div>
-  </motion.div>
-);
-
-// Benefits Bar
-const BenefitsBar = () => (
-  <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-fuchsia-600 py-6">
-    <div className="container mx-auto px-4">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-        {[
-          {
-            icon: "🚚",
-            title: "Free Shipping",
-            subtitle: "On orders above ₹500",
-          },
-          {
-            icon: "↩️",
-            title: "Easy Returns",
-            subtitle: "30-day return policy",
-          },
-          {
-            icon: "🔒",
-            title: "Secure Payment",
-            subtitle: "100% secure checkout",
-          },
-          {
-            icon: "💬",
-            title: "24/7 Support",
-            subtitle: "Dedicated support team",
-          },
-        ].map((item, idx) => (
-          <motion.div
-            key={idx}
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: idx * 0.1 }}
-            className="flex flex-col items-center text-white"
-          >
-            <span className="text-3xl mb-1">{item.icon}</span>
-            <span className="font-bold text-sm md:text-base">{item.title}</span>
-            <span className="text-xs opacity-80">{item.subtitle}</span>
-          </motion.div>
-        ))}
-      </div>
-    </div>
-  </div>
-);
-
-// Deal Card
-const DealCard = ({ product, index }) => {
+// ── Product Card ─────────────────────────────────────────
+const ProductCard = ({ product, index = 0 }) => {
   const { addToCart } = useCart();
-  const discount = product.originalPrice
-    ? Math.round(
-        ((product.originalPrice - product.price) / product.originalPrice) * 100,
-      )
-    : 0;
-  const timeLeft = Math.max(0, 24 - index * 3);
+  const d = disc(product.price, product.originalPrice);
 
-  const handleAddToCart = (e) => {
+  const onCart = (e) => {
     e.preventDefault();
+    e.stopPropagation();
     addToCart(product, 1);
-    toast.success(`${product.name} added to cart!`, { icon: "🛒" });
+    toast.success(`Added to cart`, {
+      style: {
+        background: "#13131f",
+        color: "#f0ede8",
+        border: "1px solid rgba(212,168,83,0.3)",
+        fontFamily: "Outfit, sans-serif",
+        fontSize: "13px",
+      },
+      icon: "🛒",
+    });
   };
 
   return (
     <motion.div
-      variants={fadeInUp}
-      initial="hidden"
-      whileInView="visible"
+      className="prod-card"
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
-      className="group relative bg-white dark:bg-gray-900 rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 border border-gray-100 dark:border-gray-800"
+      transition={{ delay: index * 0.06 }}
     >
-      <div className="absolute top-3 left-3 z-20">
-        <span className="px-3 py-1 bg-red-500 text-white text-xs font-bold rounded-full animate-pulse">
-          {timeLeft}h left
-        </span>
-      </div>
-      {discount > 0 && (
-        <div className="absolute top-3 right-3 z-20">
-          <span className="px-3 py-1 bg-gradient-to-r from-orange-500 to-red-500 text-white text-xs font-bold rounded-full">
-            {discount}% OFF
-          </span>
-        </div>
-      )}
-
-      <Link to={`/product/${product._id}`} className="block">
-        <div className="aspect-square overflow-hidden">
+      <div className="prod-thumb">
+        <Link to={`/product/${product._id}`}>
           <img
+            className="prod-img"
             src={getImageUrl(product.image, index)}
             alt={product.name}
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+            loading="lazy"
+            onError={(e) => (e.target.src = getImageUrl(null, index))}
           />
+        </Link>
+        <div className="prod-badges">
+          {d > 5 && <span className="badge badge-off">{d}% Off</span>}
+          {product.isNew && <span className="badge badge-new">New</span>}
         </div>
-      </Link>
-
-      <div className="p-4">
-        <h4 className="font-semibold text-gray-900 dark:text-white line-clamp-2 mb-2">
-          <Link to={`/product/${product._id}`}>{product.name}</Link>
-        </h4>
-        <div className="flex items-center gap-2 mb-3">
-          <StarRating rating={product.rating || 4.5} />
+        <button className="prod-wish" aria-label="Wishlist">
+          ♡
+        </button>
+        <div className="prod-actions">
+          <Link
+            to={`/product/${product._id}`}
+            className="prod-action-btn btn-view"
+          >
+            View Details
+          </Link>
+          <button className="prod-action-btn btn-cart" onClick={onCart}>
+            Add to Cart
+          </button>
         </div>
-        <div className="flex items-baseline gap-2 mb-4">
-          <span className="text-xl font-bold text-indigo-600 dark:text-indigo-400">
-            ₹{product.price?.toLocaleString("en-IN")}
-          </span>
+      </div>
+      <div className="prod-info">
+        <div className="prod-name">{product.name}</div>
+        <Stars r={Number(product.rating) || 4.2} />
+        <div className="prod-price-row" style={{ marginTop: 6 }}>
+          <span className="prod-price">₹{fmt(product.price)}</span>
           {product.originalPrice && (
-            <span className="text-sm text-gray-500 line-through">
-              ₹{product.originalPrice?.toLocaleString("en-IN")}
-            </span>
+            <span className="prod-orig">₹{fmt(product.originalPrice)}</span>
           )}
         </div>
-        <button
-          onClick={handleAddToCart}
-          className="w-full py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-xl font-medium hover:from-indigo-700 hover:to-violet-700 transition-all shadow-md hover:shadow-lg"
-        >
-          Add to Cart
-        </button>
       </div>
     </motion.div>
   );
 };
 
-// Testimonial Card
-const TestimonialCard = ({ testimonial }) => (
-  <motion.div
-    variants={fadeInUp}
-    className="bg-white dark:bg-gray-900 p-6 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-800"
-  >
-    <div className="flex items-center gap-1 mb-4">
-      {[...Array(5)].map((_, i) => (
-        <svg
-          key={i}
-          className="w-5 h-5 text-yellow-400 fill-current"
-          viewBox="0 0 20 20"
-        >
-          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-        </svg>
-      ))}
-    </div>
-    <p className="text-gray-600 dark:text-gray-300 mb-4 italic">
-      "{testimonial.text}"
-    </p>
-    <div className="flex items-center gap-3">
-      <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold">
-        {testimonial.name.charAt(0)}
-      </div>
-      <div>
-        <h5 className="font-semibold text-gray-900 dark:text-white">
-          {testimonial.name}
-        </h5>
-        <p className="text-sm text-gray-500">{testimonial.location}</p>
-      </div>
-    </div>
-  </motion.div>
-);
-
-// Newsletter Section
-const Newsletter = () => {
-  const [email, setEmail] = useState("");
-  const [subscribed, setSubscribed] = useState(false);
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (email) {
-      setSubscribed(true);
-      toast.success("Thanks for subscribing! 🎉");
-      setEmail("");
-    }
-  };
+// ── Deal Card ─────────────────────────────────────────────
+const DealCard = ({ product, index = 0 }) => {
+  const { addToCart } = useCart();
+  const d = disc(product.price, product.originalPrice);
+  const hrs = Math.max(1, 24 - index * 3);
 
   return (
-    <section className="py-20 bg-gradient-to-br from-indigo-900 via-purple-900 to-fuchsia-900 relative overflow-hidden">
-      <div className="absolute inset-0 opacity-20">
-        <div className="absolute top-10 left-10 w-32 h-32 bg-white rounded-full blur-3xl" />
-        <div className="absolute bottom-10 right-10 w-48 h-48 bg-pink-500 rounded-full blur-3xl" />
+    <motion.div
+      className="prod-card deal-card"
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      transition={{ delay: index * 0.07 }}
+    >
+      <div className="prod-thumb">
+        <Link to={`/product/${product._id}`}>
+          <img
+            className="prod-img"
+            src={getImageUrl(product.image, index + 20)}
+            alt={product.name}
+            loading="lazy"
+          />
+        </Link>
+        <div className="deal-timer">⏱ {hrs}h left</div>
+        {d > 0 && (
+          <div
+            className="prod-badges"
+            style={{ top: 10, left: "auto", right: 10 }}
+          >
+            <span className="badge badge-off">{d}%</span>
+          </div>
+        )}
+        <div className="prod-actions">
+          <Link
+            to={`/product/${product._id}`}
+            className="prod-action-btn btn-view"
+          >
+            View
+          </Link>
+          <button
+            className="prod-action-btn btn-cart"
+            onClick={(e) => {
+              e.preventDefault();
+              addToCart(product, 1);
+              toast.success("Added!", {
+                style: {
+                  background: "#13131f",
+                  color: "#f0ede8",
+                  border: "1px solid rgba(212,168,83,0.3)",
+                  fontFamily: "Outfit, sans-serif",
+                  fontSize: "13px",
+                },
+              });
+            }}
+          >
+            Cart
+          </button>
+        </div>
       </div>
-      <div className="container mx-auto px-4 relative z-10">
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="max-w-2xl mx-auto text-center"
-        >
-          <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
-            Subscribe to Our Newsletter
-          </h2>
-          <p className="text-gray-300 mb-8">
-            Get exclusive offers and updates straight to your inbox!
-          </p>
-          {subscribed ? (
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              className="bg-green-500/20 text-green-300 px-6 py-4 rounded-2xl inline-block"
-            >
-              🎉 Thanks for subscribing!
-            </motion.div>
-          ) : (
-            <form
-              onSubmit={handleSubmit}
-              className="flex flex-col sm:flex-row gap-3 max-w-lg mx-auto"
-            >
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter your email"
-                className="flex-1 px-6 py-4 rounded-full bg-white/10 border border-white/20 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-400 backdrop-blur-sm"
-                required
-              />
-              <button
-                type="submit"
-                className="px-8 py-4 bg-white text-indigo-900 font-bold rounded-full hover:bg-gray-100 transition-colors shadow-lg"
-              >
-                Subscribe
-              </button>
-            </form>
+      <div className="prod-info">
+        <div className="prod-name">{product.name}</div>
+        <div className="prod-price-row" style={{ marginTop: 4 }}>
+          <span className="prod-price">₹{fmt(product.price)}</span>
+          {product.originalPrice && (
+            <span className="prod-orig">₹{fmt(product.originalPrice)}</span>
           )}
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
+// ── Hero Slider ───────────────────────────────────────────
+const SLIDES = [
+  {
+    img: "https://picsum.photos/1400/800?random=101",
+    eyebrow: "New Collection 2025",
+    title: "Wear The",
+    titleItalic: "Extraordinary",
+    sub: "Discover pieces that define you. Luxury fashion curated for the bold.",
+    cta: "Explore Now",
+    ctaLink: "/shop",
+    badge: "Up to 70% Off",
+  },
+  {
+    img: "https://picsum.photos/1400/800?random=102",
+    eyebrow: "Men's Exclusive",
+    title: "Redefine",
+    titleItalic: "Your Style",
+    sub: "Premium menswear crafted with precision. Be unforgettable.",
+    cta: "Shop Men",
+    ctaLink: "/shop?cat=men",
+    badge: "Free Shipping",
+  },
+  {
+    img: "https://picsum.photos/1400/800?random=103",
+    eyebrow: "Summer Edit",
+    title: "Summer",
+    titleItalic: "Reinvented",
+    sub: "Effortless silhouettes for sun-drenched days. The season's finest.",
+    cta: "View Collection",
+    ctaLink: "/shop?cat=summer",
+    badge: "New Arrivals",
+  },
+];
+
+const HeroSlider = () => {
+  const [cur, setCur] = useState(0);
+  const [dir, setDir] = useState(1);
+  const timer = useRef(null);
+
+  const go = useCallback(
+    (n) => {
+      setDir(n > cur ? 1 : -1);
+      setCur(n);
+    },
+    [cur],
+  );
+
+  const next = useCallback(() => go((cur + 1) % SLIDES.length), [cur, go]);
+  const prev = useCallback(
+    () => go((cur - 1 + SLIDES.length) % SLIDES.length),
+    [cur, go],
+  );
+
+  useEffect(() => {
+    timer.current = setInterval(next, 5500);
+    return () => clearInterval(timer.current);
+  }, [next]);
+
+  const variants = {
+    enter: (d) => ({ x: d > 0 ? "8%" : "-8%", opacity: 0 }),
+    center: {
+      x: 0,
+      opacity: 1,
+      transition: { duration: 0.75, ease: [0.22, 1, 0.36, 1] },
+    },
+    exit: (d) => ({
+      x: d > 0 ? "-8%" : "8%",
+      opacity: 0,
+      transition: { duration: 0.5 },
+    }),
+  };
+
+  const s = SLIDES[cur];
+
+  return (
+    <section
+      style={{
+        position: "relative",
+        height: "92vh",
+        minHeight: 560,
+        overflow: "hidden",
+      }}
+    >
+      <AnimatePresence custom={dir} initial={false}>
+        <motion.div
+          key={cur}
+          className="hero-slide"
+          custom={dir}
+          variants={variants}
+          initial="enter"
+          animate="center"
+          exit="exit"
+        >
+          <motion.img
+            className="hero-img"
+            src={s.img}
+            alt={s.title}
+            initial={{ scale: 1.08 }}
+            animate={{ scale: 1 }}
+            transition={{ duration: 6, ease: "linear" }}
+          />
+          <div className="hero-overlay" />
         </motion.div>
+      </AnimatePresence>
+
+      {/* Content */}
+      <div
+        className="container"
+        style={{
+          position: "relative",
+          zIndex: 2,
+          height: "100%",
+          display: "flex",
+          alignItems: "center",
+        }}
+      >
+        <div style={{ maxWidth: 620 }}>
+          <motion.div
+            key={`ey-${cur}`}
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "0.6rem",
+              fontSize: 10,
+              letterSpacing: "0.3em",
+              textTransform: "uppercase",
+              color: "var(--c-gold)",
+              marginBottom: "1.2rem",
+            }}
+          >
+            <span
+              style={{
+                width: 24,
+                height: 1,
+                background: "var(--c-gold)",
+                display: "inline-block",
+              }}
+            />
+            {s.eyebrow}
+          </motion.div>
+
+          <motion.h1
+            key={`t-${cur}`}
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.35 }}
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: "clamp(3rem,7vw,5.5rem)",
+              fontWeight: 900,
+              lineHeight: 1,
+              letterSpacing: "-0.03em",
+              marginBottom: "1.5rem",
+            }}
+          >
+            {s.title}
+            <br />
+            <em style={{ fontStyle: "italic", color: "var(--c-gold)" }}>
+              {s.titleItalic}
+            </em>
+          </motion.h1>
+
+          <motion.p
+            key={`s-${cur}`}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+            style={{
+              fontSize: 15,
+              lineHeight: 1.7,
+              color: "rgba(240,237,232,0.75)",
+              marginBottom: "2.2rem",
+              maxWidth: 420,
+            }}
+          >
+            {s.sub}
+          </motion.p>
+
+          <motion.div
+            key={`b-${cur}`}
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.65 }}
+            style={{
+              display: "flex",
+              gap: "0.8rem",
+              flexWrap: "wrap",
+              alignItems: "center",
+            }}
+          >
+            <Link to={s.ctaLink} className="btn-gold">
+              {s.cta} →
+            </Link>
+            <span
+              style={{
+                fontSize: 10,
+                letterSpacing: "0.2em",
+                textTransform: "uppercase",
+                color: "var(--c-gold)",
+                border: "1px solid rgba(212,168,83,0.3)",
+                padding: "0.5rem 1rem",
+              }}
+            >
+              {s.badge}
+            </span>
+          </motion.div>
+        </div>
+      </div>
+
+      {/* Nav */}
+      <button className="hero-nav hero-nav-l" onClick={prev}>
+        ‹
+      </button>
+      <button className="hero-nav hero-nav-r" onClick={next}>
+        ›
+      </button>
+
+      {/* Dots */}
+      <div className="slide-dots">
+        {SLIDES.map((_, i) => (
+          <div
+            key={i}
+            className={`slide-dot ${i === cur ? "active" : ""}`}
+            onClick={() => go(i)}
+          />
+        ))}
+      </div>
+
+      {/* Counter */}
+      <div className="slide-counter">
+        {String(cur + 1).padStart(2, "0")} /{" "}
+        {String(SLIDES.length).padStart(2, "0")}
       </div>
     </section>
   );
 };
 
-// Main Product Card
-const ProductCard = ({ product, index = 0 }) => {
-  const { addToCart } = useCart();
-  const discount = product.originalPrice
-    ? Math.round(
-        ((product.originalPrice - product.price) / product.originalPrice) * 100,
-      )
-    : 0;
-
-  const handleAddToCart = (e) => {
-    e.stopPropagation();
-    addToCart(product, 1);
-    toast.success(
-      <div className="flex items-center gap-2">
-        <span className="text-xl">🛍️</span>
-        <span>{product.name} added to cart!</span>
-      </div>,
-      { duration: 2000 },
-    );
-  };
-
-  return (
-    <motion.div
-      variants={cardHover}
-      initial="rest"
-      whileHover="hover"
-      className="group relative bg-white dark:bg-gray-900 rounded-2xl shadow-lg overflow-hidden border border-gray-100 dark:border-gray-800 hover:border-indigo-500/30 transition-all duration-300"
-    >
-      <Link to={`/product/${product._id}`} className="block relative">
-        <div className="relative aspect-[3/4] overflow-hidden">
-          <img
-            src={getImageUrl(product.image, index)}
-            alt={product.name}
-            loading="lazy"
-            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-            onError={(e) => {
-              e.target.src = getImageUrl(null, index);
-            }}
-          />
-
-          {/* Glass overlay */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-
-          {/* Badges */}
-          <div className="absolute top-3 left-3 flex flex-col gap-2">
-            {discount > 5 && (
-              <span className="px-3 py-1 bg-gradient-to-r from-red-500 to-rose-600 text-white text-xs font-bold rounded-full shadow-md">
-                {discount}% OFF
-              </span>
-            )}
-            {product.isNew && (
-              <span className="px-3 py-1 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-xs font-bold rounded-full shadow-md">
-                NEW
-              </span>
-            )}
-          </div>
-
-          {/* Wishlist */}
-          <button
-            className="absolute top-3 right-3 w-10 h-10 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md rounded-full flex items-center justify-center text-gray-600 dark:text-gray-300 hover:text-red-500 hover:scale-110 transition-all duration-300 opacity-0 group-hover:opacity-100 shadow-md"
-            aria-label="Add to wishlist"
-          >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-              />
-            </svg>
-          </button>
-        </div>
-      </Link>
-
-      <div className="p-4">
-        <h3 className="font-semibold text-gray-900 dark:text-white mb-2 line-clamp-2 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-          <Link to={`/product/${product._id}`}>{product.name}</Link>
-        </h3>
-
-        <div className="flex items-center justify-between mb-3">
-          <StarRating
-            rating={product.rating || 4.5}
-            showCount
-            reviewCount={product.numReviews || 0}
-          />
-        </div>
-
-        <div className="flex items-baseline gap-2 mb-4">
-          <span className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
-            ₹{product.price?.toLocaleString("en-IN")}
-          </span>
-          {product.originalPrice && (
-            <span className="text-sm text-gray-500 line-through">
-              ₹{product.originalPrice?.toLocaleString("en-IN")}
-            </span>
-          )}
-        </div>
-
-        <div className="flex gap-2">
-          <Link
-            to={`/product/${product._id}`}
-            className="flex-1 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-center rounded-xl font-medium hover:from-indigo-700 hover:to-violet-700 transition-all shadow-md hover:shadow-lg"
-          >
-            View Details
-          </Link>
-          <button
-            onClick={handleAddToCart}
-            className="p-2.5 bg-gray-100 dark:bg-gray-800 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-            aria-label="Add to cart"
-          >
-            <svg
-              className="w-5 h-5 text-gray-700 dark:text-gray-300"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
-              />
-            </svg>
-          </button>
-        </div>
-      </div>
-    </motion.div>
-  );
-};
-
-// ============================================
-// MAIN HOME COMPONENT
-// ============================================
-
+// ── Main ─────────────────────────────────────────────────
 const Home = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const heroRef = useRef(null);
+  const [email, setEmail] = useState("");
+  const [nlDone, setNlDone] = useState(false);
 
   useEffect(() => {
-    let mounted = true;
-    const fetchData = async () => {
+    let live = true;
+    (async () => {
       try {
-        setLoading(true);
-        setError(null);
         const data = await getProducts();
-        if (mounted) {
-          if (data && Array.isArray(data.products)) {
-            setProducts(data.products);
-          } else {
-            setProducts(Array.isArray(data) ? data : []);
-          }
-        }
-
+        if (live)
+          setProducts(
+            Array.isArray(data?.products)
+              ? data.products
+              : Array.isArray(data)
+                ? data
+                : [],
+          );
       } catch {
-        if (mounted)
-          setError("Unable to load products. Please try again later.");
       } finally {
-        if (mounted) setLoading(false);
+        if (live) setLoading(false);
       }
-    };
-    fetchData();
+    })();
     return () => {
-      mounted = false;
+      live = false;
     };
   }, []);
 
-  // Get featured and latest products
-  const featuredProducts = products.slice(0, 8);
-  const dealProducts = products.slice(8, 16).filter((p) => p.price < 1000);
-  const newArrivals = products.slice(0, 12);
+  const featured = products.slice(0, 8);
+  const deals = products.filter((p) => p.price < 1000).slice(0, 4);
+  const arrivals = products.slice(0, 12);
 
-  // Categories data
   const categories = [
     {
-      name: "Men",
-      image: "https://loremflickr.com/400/400/man,fashion?random=1",
+      name: "Women",
+      sub: "New Arrivals",
+      img: "https://picsum.photos/800/900?random=10",
     },
     {
-      name: "Women",
-      image: "https://loremflickr.com/400/400/woman,fashion?random=2",
+      name: "Men",
+      sub: "Premium Edit",
+      img: "https://picsum.photos/400/400?random=11",
     },
     {
       name: "Kids",
-      image: "https://loremflickr.com/400/400/kids,clothing?random=3",
+      sub: "Fresh Styles",
+      img: "https://picsum.photos/400/400?random=12",
     },
     {
       name: "Accessories",
-      image: "https://loremflickr.com/400/400/accessories,watch?random=4",
+      sub: "Must Haves",
+      img: "https://picsum.photos/400/400?random=13",
     },
   ];
 
-  // Testimonials
   const testimonials = [
     {
-      name: "Rahul Sharma",
-      location: "Mumbai",
-      text: "Amazing quality and fast delivery! Will definitely order again.",
+      name: "Rahul S.",
+      loc: "Mumbai",
+      text: "Absolutely stunning quality. Every piece I've ordered has been perfect — fast delivery, beautiful packaging. This is my go-to store now.",
     },
     {
-      name: "Priya Patel",
-      location: "Delhi",
-      text: "Best online shopping experience. The products are exactly as shown.",
+      name: "Priya P.",
+      loc: "Delhi",
+      text: "The curation here is unlike anything else. Found exactly what I was looking for. The fabric quality exceeded every expectation.",
     },
     {
-      name: "Amit Kumar",
-      location: "Bangalore",
-      text: "Great customer service and excellent product quality.",
+      name: "Amit K.",
+      loc: "Bangalore",
+      text: "Customer service is incredible. Had an issue with sizing and they sorted it out within hours. Will shop here forever.",
     },
+  ];
+
+  const onNl = (e) => {
+    e.preventDefault();
+    if (!email) return;
+    setNlDone(true);
+    toast.success("Subscribed! Watch your inbox.", {
+      style: {
+        background: "#13131f",
+        color: "#f0ede8",
+        border: "1px solid rgba(212,168,83,0.3)",
+        fontFamily: "Outfit, sans-serif",
+        fontSize: "13px",
+      },
+    });
+  };
+
+  const BRANDS = [
+    "Zara",
+    "H&M",
+    "Mango",
+    "Louis Philippe",
+    "AND",
+    "Fabindia",
+    "Westside",
+    "Global Desi",
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 mt-20">
-      <Toaster
-        position="top-center"
-        toastOptions={{
-          duration: 3000,
-          style: {
-            borderRadius: "16px",
-            background: "#1f2937",
-            color: "#fff",
-            padding: "16px 24px",
-          },
-        }}
-      />
+    <div className="h-root">
+      <GlobalStyles />
+      <Toaster position="top-right" />
 
-      {/* Benefits Bar */}
-      <BenefitsBar />
+      {/* ── Hero Slider ─────────────────────────────── */}
+      <HeroSlider />
 
-      {/* Hero Section */}
-      <section
-        ref={heroRef}
-        className="relative overflow-hidden bg-gradient-to-br from-indigo-600 via-purple-700 to-fuchsia-600"
+      {/* ── Benefits ────────────────────────────────── */}
+      <motion.div
+        className="benefits-grid container"
+        style={{ marginTop: "3rem" }}
+        initial={{ opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
       >
-        {/* Animated Background Elements */}
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute -top-40 -right-40 w-80 h-80 bg-white/10 rounded-full blur-3xl animate-pulse" />
-          <div
-            className="absolute -bottom-40 -left-40 w-96 h-96 bg-white/10 rounded-full blur-3xl animate-pulse"
-            style={{ animationDelay: "1s" }}
-          />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-to-r from-pink-500/20 to-purple-500/20 rounded-full blur-3xl" />
-        </div>
-
-        <div className="relative container mx-auto px-6 py-24 md:py-36 lg:py-44">
+        {[
+          { icon: "✈", title: "Free Shipping", sub: "Orders above ₹500" },
+          { icon: "↩", title: "Easy Returns", sub: "30-day policy" },
+          { icon: "🔒", title: "Secure Payment", sub: "256-bit SSL" },
+          { icon: "◎", title: "24/7 Support", sub: "Always here for you" },
+        ].map((b, i) => (
           <motion.div
-            initial={{ opacity: 0, y: 50 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            className="text-center max-w-4xl mx-auto"
+            key={b.title}
+            className="benefit-item"
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: i * 0.08 }}
           >
-            <motion.span
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.2 }}
-              className="inline-block px-5 py-2 bg-white/20 backdrop-blur-md rounded-full text-white text-sm font-medium mb-6"
-            >
-              ✨ New Collection 2024
-            </motion.span>
-
-            <motion.h1
-              initial={{ y: 30, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.3 }}
-              className="text-4xl md:text-6xl lg:text-7xl font-black text-white mb-6 leading-tight"
-            >
-              Style That Speaks
-              <span className="block text-yellow-300">Volumes</span>
-            </motion.h1>
-
-            <motion.p
-              initial={{ y: 30, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.5 }}
-              className="text-lg md:text-xl text-white/90 mb-10 max-w-2xl mx-auto"
-            >
-              Discover the latest trends in fashion with our exclusive
-              collection. Up to{" "}
-              <span className="font-bold text-yellow-300">70% OFF</span> on
-              selected items!
-            </motion.p>
-
-            <motion.div
-              initial={{ y: 30, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.7 }}
-              className="flex flex-col sm:flex-row gap-4 justify-center"
-            >
-              <Link
-                to="/shop"
-                className="px-10 py-4 bg-white text-indigo-700 font-bold text-lg rounded-full shadow-2xl hover:bg-yellow-300 hover:text-indigo-900 transition-all duration-300 transform hover:scale-105 hover:shadow-xl"
-              >
-                Shop Now →
-              </Link>
-              <Link
-                to="/deals"
-                className="px-10 py-4 bg-transparent border-2 border-white/50 text-white font-bold text-lg rounded-full hover:bg-white/10 backdrop-blur-sm transition-all duration-300"
-              >
-                Flash Deals ⚡
-              </Link>
-            </motion.div>
+            <div className="benefit-icon">
+              <span style={{ fontSize: 20 }}>{b.icon}</span>
+            </div>
+            <div>
+              <div className="benefit-title">{b.title}</div>
+              <div className="benefit-sub">{b.sub}</div>
+            </div>
           </motion.div>
-        </div>
+        ))}
+      </motion.div>
 
-        {/* Wave Divider */}
-        <div className="absolute bottom-0 left-0 right-0">
-          <svg
-            viewBox="0 0 1440 120"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
+      {/* ── Brand Marquee ────────────────────────────── */}
+      <div className="marquee-wrap" style={{ marginTop: "3.5rem" }}>
+        <div className="marquee-inner">
+          {[...BRANDS, ...BRANDS].map((b, i) => (
+            <React.Fragment key={i}>
+              <span className="marquee-item">{b}</span>
+              <span className="marquee-sep">✦</span>
+            </React.Fragment>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Categories ──────────────────────────────── */}
+      <section className="section">
+        <div className="container">
+          <div className="sec-header">
+            <div>
+              <div className="sec-eyebrow">Shop by Category</div>
+              <h2 className="sec-title">
+                Find Your <em>Style</em>
+              </h2>
+            </div>
+            <Link to="/category" className="see-all">
+              All Categories →
+            </Link>
+          </div>
+          <motion.div
+            className="cat-grid"
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
           >
-            <path
-              d="M0 120L60 105C120 90 240 60 360 45C480 30 600 30 720 37.5C840 45 960 60 1080 67.5C1200 75 1320 75 1380 75L1440 75V120H1380C1320 120 1200 120 1080 120C960 120 840 120 720 120C600 120 480 120 360 120C240 120 120 120 60 120H0Z"
-              fill="currentColor"
-              className="text-gray-50 dark:text-gray-950"
-            />
-          </svg>
+            {categories.map((cat, i) => (
+              <motion.div
+                key={cat.name}
+                className="cat-card"
+                initial={{ opacity: 0, scale: 0.97 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.1 }}
+              >
+                <img className="cat-img" src={cat.img} alt={cat.name} />
+                <div className="cat-overlay" />
+                <div className="cat-label">
+                  <div className="cat-name">{cat.name}</div>
+                  <div className="cat-cta">{cat.sub} →</div>
+                </div>
+              </motion.div>
+            ))}
+          </motion.div>
         </div>
       </section>
 
-      <div className="container mx-auto px-4 py-16">
-        {/* Error State */}
-        {error && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 rounded-3xl p-8 text-center mb-12"
-          >
-            <h2 className="text-2xl font-bold text-red-700 dark:text-red-400 mb-2">
-              Oops!
-            </h2>
-            <p className="text-red-600 dark:text-red-300 mb-4">{error}</p>
-            <button
-              onClick={() => window.location.reload()}
-              className="px-6 py-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors font-medium"
-            >
-              Try Again
-            </button>
-          </motion.div>
-        )}
-
-        {/* Categories Section */}
-        <motion.section
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: true }}
-          className="mb-20"
-        >
-          <div className="flex items-center justify-between mb-8">
-            <h2 className="text-3xl md:text-4xl font-bold">Shop by Category</h2>
-            <Link
-              to="/category"
-              className="text-indigo-600 dark:text-indigo-400 font-medium hover:underline"
-            >
-              View All →
-            </Link>
-          </div>
-          <motion.div
-            variants={staggerContainer}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            className="grid grid-cols-2 md:grid-cols-4 gap-4"
-          >
-            {categories.map((cat, idx) => (
-              <CategoryCard key={idx} category={cat} index={idx} />
-            ))}
-          </motion.div>
-        </motion.section>
-
-        {/* Featured Products */}
-        {!loading && featuredProducts.length > 0 && (
-          <motion.section
-            initial={{ opacity: 0, y: 40 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="mb-20"
-          >
-            <div className="flex items-center justify-between mb-8">
-              <div>
-                <h2 className="text-3xl md:text-4xl font-bold mb-2">
-                  Featured Products
-                </h2>
-                <p className="text-gray-500 dark:text-gray-400">
-                  Handpicked just for you
-                </p>
-              </div>
-              <Link
-                to="/shop?sort=popular"
-                className="hidden md:block text-indigo-600 dark:text-indigo-400 font-medium hover:underline"
-              >
-                View All →
-              </Link>
-            </div>
-            <motion.div
-              variants={staggerContainer}
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true }}
-              className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6"
-            >
-              <AnimatePresence>
-                {featuredProducts.map((product, idx) => (
-                  <ProductCard
-                    key={product._id}
-                    product={product}
-                    index={idx}
-                  />
-                ))}
-              </AnimatePresence>
-            </motion.div>
-            <div className="mt-6 text-center md:hidden">
-              <Link
-                to="/shop"
-                className="text-indigo-600 dark:text-indigo-400 font-medium"
-              >
-                View All Products →
-              </Link>
-            </div>
-          </motion.section>
-        )}
-
-        {/* Deals Section */}
-        {!loading && dealProducts.length > 0 && (
-          <motion.section
-            initial={{ opacity: 0, y: 40 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="mb-20"
-          >
-            <div className="flex items-center justify-between mb-8">
-              <div className="flex items-center gap-3">
-                <h2 className="text-3xl md:text-4xl font-bold">
-                  Today's Deals
-                </h2>
-                <span className="px-3 py-1 bg-red-500 text-white text-sm font-bold rounded-full animate-pulse">
-                  ⚡ HOT
-                </span>
-              </div>
-              <Link
-                to="/deals"
-                className="text-indigo-600 dark:text-indigo-400 font-medium hover:underline"
-              >
-                View All →
-              </Link>
-            </div>
-            <motion.div
-              variants={staggerContainer}
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true }}
-              className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6"
-            >
-              {dealProducts.map((product, idx) => (
-                <DealCard key={product._id} product={product} index={idx} />
-              ))}
-            </motion.div>
-          </motion.section>
-        )}
-
-        {/* Banner Section */}
-        <motion.section
-          initial={{ opacity: 0, scale: 0.95 }}
-          whileInView={{ opacity: 1, scale: 1 }}
-          viewport={{ once: true }}
-          className="mb-20"
-        >
-          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-violet-600 to-indigo-600 p-8 md:p-16">
-            <div className="absolute inset-0 opacity-20">
-              <div className="absolute top-0 right-0 w-64 h-64 bg-white rounded-full blur-3xl" />
-              <div className="absolute bottom-0 left-0 w-48 h-48 bg-pink-500 rounded-full blur-3xl" />
-            </div>
-            <div className="relative z-10 max-w-xl">
-              <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
-                Flat 50% Off On Summer Collection
-              </h2>
-              <p className="text-white/80 mb-6">
-                Don't miss out on our biggest sale of the season. Limited time
-                offer!
-              </p>
-              <Link
-                to="/shop?category=summer"
-                className="inline-block px-8 py-3 bg-white text-indigo-600 font-bold rounded-full hover:bg-gray-100 transition-colors shadow-lg"
-              >
-                Shop Now
-              </Link>
-            </div>
-          </div>
-        </motion.section>
-
-        {/* New Arrivals */}
-        <motion.section
-          initial={{ opacity: 0, y: 40 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="mb-20"
-        >
-          <div className="flex items-center justify-between mb-8">
+      {/* ── Featured Products ────────────────────────── */}
+      <section className="section" style={{ paddingTop: 0 }}>
+        <div className="container">
+          <div className="sec-header">
             <div>
-              <h2 className="text-3xl md:text-4xl font-bold mb-2">
-                New Arrivals
+              <div className="sec-eyebrow">Handpicked for You</div>
+              <h2 className="sec-title">
+                Featured <em>Products</em>
               </h2>
-              <p className="text-gray-500 dark:text-gray-400">
-                Fresh styles added daily
-              </p>
             </div>
-            <Link
-              to="/shop?sort=newest"
-              className="text-indigo-600 dark:text-indigo-400 font-medium hover:underline"
-            >
+            <Link to="/shop?sort=popular" className="see-all">
               View All →
             </Link>
           </div>
-
           {loading ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+            <div className="prod-grid">
               {[...Array(8)].map((_, i) => (
-                <ProductSkeleton key={i} />
+                <ProdSkeleton key={i} />
               ))}
             </div>
-          ) : products.length === 0 ? (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="bg-white dark:bg-gray-900 rounded-3xl p-12 text-center border border-gray-100 dark:border-gray-800"
-            >
-              <h3 className="text-2xl font-bold mb-2">No products yet...</h3>
-              <p className="text-gray-500">Check back soon for new arrivals!</p>
-            </motion.div>
           ) : (
-            <motion.div
-              variants={staggerContainer}
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true }}
-              className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6"
-            >
-              {newArrivals.map((product, idx) => (
-                <ProductCard key={product._id} product={product} index={idx} />
+            <div className="prod-grid">
+              {featured.map((p, i) => (
+                <ProductCard key={p._id} product={p} index={i} />
               ))}
-            </motion.div>
+            </div>
           )}
-        </motion.section>
+        </div>
+      </section>
 
-        {/* Testimonials */}
-        <motion.section
-          initial={{ opacity: 0, y: 40 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="mb-20"
-        >
-          <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold mb-2">
-              What Our Customers Say
-            </h2>
-            <p className="text-gray-500 dark:text-gray-400">
-              Join thousands of happy customers
-            </p>
+      {/* ── Promo Banner ─────────────────────────────── */}
+      <section className="section" style={{ paddingTop: 0 }}>
+        <div className="container">
+          <motion.div
+            className="promo-banner"
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+          >
+            <div className="promo-left">
+              <span className="promo-tag">Limited Time</span>
+              <h2 className="promo-title">
+                Flat <span>50% Off</span>
+                <br />
+                Summer Edit
+              </h2>
+              <p className="promo-desc">
+                Our biggest summer sale is here. Fresh silhouettes, vibrant
+                palettes — all at half the price. Offer ends Sunday.
+              </p>
+              <div style={{ display: "flex", gap: "0.8rem" }}>
+                <Link to="/shop?cat=summer" className="btn-gold">
+                  Shop the Sale →
+                </Link>
+                <Link to="/deals" className="btn-outline">
+                  All Deals
+                </Link>
+              </div>
+            </div>
+            <div className="promo-right">
+              <img
+                src="https://picsum.photos/700/500?random=50"
+                alt="Summer sale"
+              />
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ── Today's Deals ────────────────────────────── */}
+      {!loading && deals.length > 0 && (
+        <section className="section" style={{ paddingTop: 0 }}>
+          <div className="container">
+            <div className="sec-header">
+              <div>
+                <div className="sec-eyebrow">Flash Deals</div>
+                <h2 className="sec-title">
+                  Today's <em>Hot Picks</em>
+                </h2>
+              </div>
+              <Link to="/deals" className="see-all">
+                All Deals →
+              </Link>
+            </div>
+            <div
+              className="prod-grid"
+              style={{ gridTemplateColumns: "repeat(4,1fr)" }}
+            >
+              {deals.map((p, i) => (
+                <DealCard key={p._id} product={p} index={i} />
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ── New Arrivals ─────────────────────────────── */}
+      <section className="section" style={{ paddingTop: 0 }}>
+        <div className="container">
+          <div className="sec-header">
+            <div>
+              <div className="sec-eyebrow">Just Dropped</div>
+              <h2 className="sec-title">
+                New <em>Arrivals</em>
+              </h2>
+            </div>
+            <Link to="/shop?sort=newest" className="see-all">
+              View All →
+            </Link>
+          </div>
+          {loading ? (
+            <div className="prod-grid">
+              {[...Array(8)].map((_, i) => (
+                <ProdSkeleton key={i} />
+              ))}
+            </div>
+          ) : arrivals.length === 0 ? (
+            <div
+              style={{
+                padding: "4rem",
+                textAlign: "center",
+                border: "1px solid var(--c-border)",
+                color: "var(--c-muted)",
+              }}
+            >
+              <p>No products yet — check back soon.</p>
+            </div>
+          ) : (
+            <div className="prod-grid">
+              {arrivals.map((p, i) => (
+                <ProductCard key={p._id} product={p} index={i} />
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* ── Testimonials ─────────────────────────────── */}
+      <section className="section" style={{ paddingTop: 0 }}>
+        <div className="container">
+          <div className="sec-header">
+            <div>
+              <div className="sec-eyebrow">Customer Stories</div>
+              <h2 className="sec-title">
+                Loved by <em>Thousands</em>
+              </h2>
+            </div>
           </div>
           <motion.div
-            variants={staggerContainer}
-            initial="hidden"
-            whileInView="visible"
+            className="testi-grid"
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
             viewport={{ once: true }}
-            className="grid md:grid-cols-3 gap-6"
           >
-            {testimonials.map((testimonial, idx) => (
-              <TestimonialCard key={idx} testimonial={testimonial} />
+            {testimonials.map((t, i) => (
+              <motion.div
+                key={t.name}
+                className="testi-card"
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.1 }}
+              >
+                <div className="testi-quote">"</div>
+                <div style={{ display: "flex", gap: 2, marginBottom: "1rem" }}>
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <span
+                      key={s}
+                      style={{ color: "var(--c-gold)", fontSize: 13 }}
+                    >
+                      ★
+                    </span>
+                  ))}
+                </div>
+                <p className="testi-text">{t.text}</p>
+                <div className="testi-author">
+                  <div className="testi-av">{t.name[0]}</div>
+                  <div>
+                    <div className="testi-name">{t.name}</div>
+                    <div className="testi-loc">{t.loc}</div>
+                  </div>
+                </div>
+              </motion.div>
             ))}
           </motion.div>
-        </motion.section>
+        </div>
+      </section>
 
-        {/* Trust Badges */}
-        <motion.section
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: true }}
-          className="mb-20"
-        >
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+      {/* ── Trust Badges ─────────────────────────────── */}
+      <section className="section" style={{ paddingTop: 0 }}>
+        <div className="container">
+          <div className="trust-grid">
             {[
               {
-                icon: "🛡️",
+                icon: "🛡",
                 title: "Secure Checkout",
-                desc: "256-bit SSL encryption",
+                sub: "256-bit SSL encryption",
               },
               {
                 icon: "🚚",
                 title: "Fast Delivery",
-                desc: "Free shipping over ₹500",
+                sub: "Free shipping over ₹500",
               },
-              {
-                icon: "↩️",
-                title: "Easy Returns",
-                desc: "30-day return policy",
-              },
+              { icon: "↩", title: "Easy Returns", sub: "30-day return policy" },
               {
                 icon: "💯",
-                title: "Quality Guarantee",
-                desc: "100% original products",
+                title: "100% Original",
+                sub: "Authentic products only",
               },
-            ].map((item, idx) => (
+            ].map((t, i) => (
               <motion.div
-                key={idx}
-                initial={{ opacity: 0, y: 20 }}
+                key={t.title}
+                className="trust-item"
+                initial={{ opacity: 0, y: 16 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={{ delay: idx * 0.1 }}
-                className="text-center p-6 bg-white dark:bg-gray-900 rounded-2xl shadow-md border border-gray-100 dark:border-gray-800"
+                transition={{ delay: i * 0.08 }}
               >
-                <span className="text-4xl mb-3 block">{item.icon}</span>
-                <h4 className="font-bold text-gray-900 dark:text-white mb-1">
-                  {item.title}
-                </h4>
-                <p className="text-sm text-gray-500">{item.desc}</p>
+                <div className="trust-icon">{t.icon}</div>
+                <div className="trust-title">{t.title}</div>
+                <div className="trust-sub">{t.sub}</div>
               </motion.div>
             ))}
           </div>
-        </motion.section>
+        </div>
+      </section>
+
+      {/* ── Newsletter ───────────────────────────────── */}
+      <div className="nl-section">
+        <div className="container">
+          <motion.div
+            style={{ maxWidth: 600, margin: "0 auto", textAlign: "center" }}
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+          >
+            <div className="sec-eyebrow" style={{ justifyContent: "center" }}>
+              Stay in the Loop
+            </div>
+            <h2 className="sec-title" style={{ marginBottom: "1rem" }}>
+              Get <em>Exclusive</em> Access
+            </h2>
+            <p
+              style={{
+                fontSize: 13,
+                color: "var(--c-muted)",
+                lineHeight: 1.7,
+                marginBottom: "2rem",
+              }}
+            >
+              Early drops, member-only deals, and style edits — delivered to
+              your inbox.
+            </p>
+            <AnimatePresence mode="wait">
+              {!nlDone ? (
+                <motion.form
+                  key="form"
+                  className="nl-input-row"
+                  style={{ margin: "0 auto" }}
+                  onSubmit={onNl}
+                  initial={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                >
+                  <input
+                    className="nl-input"
+                    type="email"
+                    placeholder="Your email address"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                  <button type="submit" className="nl-btn">
+                    Subscribe →
+                  </button>
+                </motion.form>
+              ) : (
+                <motion.div
+                  key="done"
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  style={{
+                    color: "var(--c-gold)",
+                    fontSize: 14,
+                    letterSpacing: "0.05em",
+                    border: "1px solid rgba(212,168,83,0.3)",
+                    padding: "1rem 2rem",
+                    display: "inline-block",
+                  }}
+                >
+                  ✦ You're on the list. Welcome to the family.
+                </motion.div>
+              )}
+            </AnimatePresence>
+            <p
+              style={{
+                fontSize: 10,
+                color: "var(--c-muted)",
+                marginTop: "1rem",
+                letterSpacing: "0.1em",
+              }}
+            >
+              No spam. Unsubscribe any time.
+            </p>
+          </motion.div>
+        </div>
       </div>
 
-      {/* Newsletter */}
-      <Newsletter />
+      {/* ── Ticker ───────────────────────────────────── */}
+      <div className="ticker-wrap">
+        <div className="ticker-inner">
+          {[...Array(3)].flatMap((_, groupIdx) =>
+            [
+              "Free Shipping on ₹500+",
+              "New Collection 2025",
+              "30-Day Easy Returns",
+              "Secure Checkout",
+              "24/7 Support",
+              "Up to 70% Off",
+            ].map((t, i) => (
+              <span key={`ticker-${groupIdx}-${i}`} className="ticker-item">
+                — {t}
+              </span>
+            )),
+          )}
+        </div>
+      </div>
     </div>
   );
 };

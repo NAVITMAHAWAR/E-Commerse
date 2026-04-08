@@ -1,4 +1,10 @@
-import React, { useState, useRef, useEffect, useCallback, useTransition } from "react";
+import React, {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  useTransition,
+} from "react";
 import axios from "axios";
 import toast from "react-hot-toast";
 import {
@@ -20,7 +26,13 @@ import { useCart } from "../context/CartContext";
 
 // Aarohi Avatar - SVG only
 const AarohiAvatar = ({ size = 40, className = "" }) => (
-  <svg viewBox="0 0 40 40" className={className} width={size} height={size} xmlns="http://www.w3.org/2000/svg">
+  <svg
+    viewBox="0 0 40 40"
+    className={className}
+    width={size}
+    height={size}
+    xmlns="http://www.w3.org/2000/svg"
+  >
     <circle cx="20" cy="16" r="10" fill="#EDE9FE" />
     <ellipse cx="20" cy="38" rx="14" ry="10" fill="#EDE9FE" />
     <path d="M10 15 Q10 6 20 6 Q30 6 30 15" fill="#5B21B6" />
@@ -30,7 +42,13 @@ const AarohiAvatar = ({ size = 40, className = "" }) => (
     <circle cx="23.5" cy="16" r="1.8" fill="#5B21B6" />
     <circle cx="17.1" cy="15.4" r="0.6" fill="white" />
     <circle cx="24.1" cy="15.4" r="0.6" fill="white" />
-    <path d="M16.5 20.5 Q20 23 23.5 20.5" stroke="#7C3AED" strokeWidth="1.2" fill="none" strokeLinecap="round" />
+    <path
+      d="M16.5 20.5 Q20 23 23.5 20.5"
+      stroke="#7C3AED"
+      strokeWidth="1.2"
+      fill="none"
+      strokeLinecap="round"
+    />
     <circle cx="10.5" cy="19" r="1.2" fill="#A78BFA" />
     <circle cx="29.5" cy="19" r="1.2" fill="#A78BFA" />
   </svg>
@@ -57,13 +75,19 @@ const TypingIndicator = () => (
 const ProductCard = React.memo(({ product, onAdd }) => (
   <div className="group bg-white/80 ar-glass backdrop-blur-sm rounded-2xl p-4 shadow-xl hover:shadow-2xl border border-white/50 hover:border-violet-200 transition-all hover:-translate-y-1">
     <div className="relative overflow-hidden rounded-xl mb-3">
-      <img src={product.image} alt={product.name} className="w-full h-28 object-cover group-hover:scale-105 transition-transform" />
+      <img
+        src={product.image}
+        alt={product.name}
+        className="w-full h-28 object-cover group-hover:scale-105 transition-transform"
+      />
     </div>
-    <h4 className="font-dm-sans font-semibold text-sm text-gray-900 line-clamp-2 mb-2">{product.name}</h4>
+    <h4 className="font-dm-sans font-semibold text-sm text-gray-900 line-clamp-2 mb-2">
+      {product.name}
+    </h4>
     <p className="text-indigo-600 font-bold text-lg mb-2">₹{product.price}</p>
     <div className="flex items-center gap-1 text-xs text-yellow-400 mb-3">
       <Star fill="currentColor" size={14} />
-      {product.rating?.toFixed(1) || 'New'}
+      {Number(product.rating || 0).toFixed(1) || "New"}
     </div>
     <button
       onClick={() => onAdd(product, 1)}
@@ -76,9 +100,9 @@ const ProductCard = React.memo(({ product, onAdd }) => (
 
 const OrderCard = React.memo(({ order, onPay }) => {
   const getStatus = (order) => {
-    if (!order.isPaid) return 'Payment Pending 💳';
-    if (order.isDelivered) return 'Delivered ✅';
-    return 'Processing... ⏳';
+    if (!order.isPaid) return "Payment Pending 💳";
+    if (order.isDelivered) return "Delivered ✅";
+    return "Processing... ⏳";
   };
 
   return (
@@ -88,8 +112,12 @@ const OrderCard = React.memo(({ order, onPay }) => {
           <Package className="text-orange-500 w-6 h-6" />
         </div>
         <div>
-          <h3 className="font-dm-sans font-bold text-xl text-gray-900">Order #{order._id?.slice(-6)}</h3>
-          <p className="text-sm text-orange-600 font-medium">{getStatus(order)}</p>
+          <h3 className="font-dm-sans font-bold text-xl text-gray-900">
+            Order #{order._id?.slice(-6)}
+          </h3>
+          <p className="text-sm text-orange-600 font-medium">
+            {getStatus(order)}
+          </p>
         </div>
       </div>
       <p className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-4">
@@ -97,16 +125,27 @@ const OrderCard = React.memo(({ order, onPay }) => {
       </p>
       <div className="space-y-2 mb-6 max-h-20 overflow-y-auto">
         {order.orderItems?.slice(0, 3).map((item) => (
-          <div key={item._id} className="flex items-center gap-3 p-2 bg-white/50 rounded-xl">
-            <img src={item.image} alt="" className="w-12 h-12 rounded-lg object-cover" />
+          <div
+            key={item._id}
+            className="flex items-center gap-3 p-2 bg-white/50 rounded-xl"
+          >
+            <img
+              src={item.image}
+              alt=""
+              className="w-12 h-12 rounded-lg object-cover"
+            />
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-gray-900 truncate">{item.name}</p>
+              <p className="text-sm font-medium text-gray-900 truncate">
+                {item.name}
+              </p>
               <p className="text-xs text-gray-500">×{item.qty}</p>
             </div>
           </div>
         ))}
         {order.orderItems?.length > 3 && (
-          <p className="text-xs text-gray-500 pl-15">+{order.orderItems.length - 3} more</p>
+          <p className="text-xs text-gray-500 pl-15">
+            +{order.orderItems.length - 3} more
+          </p>
         )}
       </div>
       <button
@@ -115,7 +154,7 @@ const OrderCard = React.memo(({ order, onPay }) => {
         disabled={order.isPaid}
       >
         <CreditCard size={20} className="inline mr-2" />
-        {order.isPaid ? 'Paid ✅' : 'Pay Securely Now'}
+        {order.isPaid ? "Paid ✅" : "Pay Securely Now"}
       </button>
     </div>
   );
@@ -147,29 +186,46 @@ const QuickReplies = ({ onClick }) => {
 
 const MessageBubble = ({ message, role }) => {
   const renderContent = () => {
-    if (message.type === 'products' && message.products?.length) {
-  return (
+    if (message.type === "products" && message.products?.length) {
+      return (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 pb-1">
           {message.products?.map((p) => (
-            <ProductCard key={p._id} product={p} onAdd={message.onAdd || (() => {})} />
+            <ProductCard
+              key={p._id}
+              product={p}
+              onAdd={message.onAdd || (() => {})}
+            />
           ))}
         </div>
       );
     }
-    if (message.type === 'order' && message.order) {
-      return <OrderCard order={message.order} onPay={message.onPay || (() => {})} />;
+    if (message.type === "order" && message.order) {
+      return (
+        <OrderCard order={message.order} onPay={message.onPay || (() => {})} />
+      );
     }
     // Simple markdown: **bold**
-    return message.content.split('\n').map((line, i) => (
-      <div key={i} className="leading-relaxed" dangerouslySetInnerHTML={{ __html: line.replace(/\*\*(.*?)\*\*/g, '<strong class=\"font-bold text-gray-900 dark:text-white\">$1</strong>') }} />
-    ));
+    return message.content
+      .split("\n")
+      .map((line, i) => (
+        <div
+          key={i}
+          className="leading-relaxed"
+          dangerouslySetInnerHTML={{
+            __html: line.replace(
+              /\*\*(.*?)\*\*/g,
+              '<strong class=\"font-bold text-gray-900 dark:text-white\">$1</strong>',
+            ),
+          }}
+        />
+      ));
   };
 
   return (
-    <div className={`p-0 ${role === 'user' ? 'bg-gradient-to-r from-violet-500 to-indigo-600 text-white rounded-2xl rounded-tr-none shadow-xl' : 'bg-white/80 ar-glass backdrop-blur-sm shadow-2xl border border-white/50 rounded-2xl rounded-tl-none'}`}>
-      <div className="px-5 py-4">
-        {renderContent()}
-      </div>
+    <div
+      className={`p-0 ${role === "user" ? "bg-gradient-to-r from-violet-500 to-indigo-600 text-white rounded-2xl rounded-tr-none shadow-xl" : "bg-white/80 ar-glass backdrop-blur-sm shadow-2xl border border-white/50 rounded-2xl rounded-tl-none"}`}
+    >
+      <div className="px-5 py-4">{renderContent()}</div>
     </div>
   );
 };
@@ -180,9 +236,14 @@ const AIAssistant = () => {
     {
       id: Date.now(),
       role: "assistant",
-      content: "Namaste! 👋 Aarohi यहाँ हूँ। Products recommend करूँ, orders track करूँ, या payment में help चाहिए?",
-      type: 'text',
-      time: new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }),
+      content:
+        "Namaste! 👋 Aarohi यहाँ हूँ। Products recommend करूँ, orders track करूँ, या payment में help चाहिए?",
+      type: "text",
+      time: new Date().toLocaleTimeString("en-IN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      }),
     },
   ]);
   const [input, setInput] = useState("");
@@ -200,11 +261,19 @@ const AIAssistant = () => {
   const inputRef = useRef(null);
   const recognitionRef = useRef(null);
 
-  const formatTime = useCallback((date) => date.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }), []);
+  const formatTime = useCallback(
+    (date) =>
+      date.toLocaleTimeString("en-IN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      }),
+    [],
+  );
 
   useEffect(() => {
     if (isOpen) {
-      const savedKey = `aiChat_${user?._id || 'guest'}`;
+      const savedKey = `aiChat_${user?._id || "guest"}`;
       const saved = localStorage.getItem(savedKey);
       if (saved) setMessages(JSON.parse(saved));
       setUnreadCount(0);
@@ -212,7 +281,7 @@ const AIAssistant = () => {
   }, [isOpen, user?._id]);
 
   useEffect(() => {
-    const savedKey = `aiChat_${user?._id || 'guest'}`;
+    const savedKey = `aiChat_${user?._id || "guest"}`;
     localStorage.setItem(savedKey, JSON.stringify(messages.slice(-50)));
   }, [messages, user?._id]);
 
@@ -224,7 +293,8 @@ const AIAssistant = () => {
   }, [messages, loading]);
 
   const toggleVoice = useCallback(() => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
       toast.error("Browser में voice support नहीं है। Chrome use करें।");
       return;
@@ -262,7 +332,7 @@ const AIAssistant = () => {
       id: Date.now(),
       role: "user",
       content: text,
-      type: 'text',
+      type: "text",
       time: formatTime(new Date()),
     };
 
@@ -273,19 +343,31 @@ const AIAssistant = () => {
     startTransition(async () => {
       setLoading(true);
       try {
-        const res = await axios.post("http://localhost:3000/api/ai/chat", {
-          question: currentInput,
-          chatHistory: messages.map((m) => `${m.role.toUpperCase()}: ${m.content}`).join("\n\n"),
-          userId: user?._id,
-        }, { timeout: 30000 });
+        const res = await axios.post(
+          "http://localhost:3000/api/ai/chat",
+          {
+            question: currentInput,
+            chatHistory: messages
+              .map((m) => `${m.role.toUpperCase()}: ${m.content}`)
+              .join("\n\n"),
+            userId: user?._id,
+          },
+          { timeout: 30000 },
+        );
 
-        const data = res.data.data || { reply: res.data.reply || "जी, समझ गयी! 😊" };
+        const data = res.data.data || {
+          reply: res.data.reply || "जी, समझ गयी! 😊",
+        };
 
         const aiMsg = {
           id: Date.now() + 1,
           role: "assistant",
           content: data.reply,
-          type: data.products?.length ? 'products' : data.order ? 'order' : 'text',
+          type: data.products?.length
+            ? "products"
+            : data.order
+              ? "order"
+              : "text",
           products: data.products || [],
           order: data.order || null,
           time: formatTime(new Date()),
@@ -304,8 +386,9 @@ const AIAssistant = () => {
         const errorMsg = {
           id: Date.now() + 1,
           role: "assistant",
-          content: "क्षमा करें! कुछ गड़बड़ हो गयी। Page refresh करके try करें। 😅",
-          type: 'text',
+          content:
+            "क्षमा करें! कुछ गड़बड़ हो गयी। Page refresh करके try करें। 😅",
+          type: "text",
           time: formatTime(new Date()),
         };
         setMessages((prev) => [...prev, errorMsg]);
@@ -315,12 +398,23 @@ const AIAssistant = () => {
         inputRef.current?.focus();
       }
     });
-  }, [input, messages, user?._id, addToCart, formatTime, loading, startTransition]);
+  }, [
+    input,
+    messages,
+    user?._id,
+    addToCart,
+    formatTime,
+    loading,
+    startTransition,
+  ]);
 
-    const handleAddToCart = useCallback((product, qty = 1) => {
-    addToCart(product, qty);
-    toast.success(`✅ ${product.name} cart में add!`);
-  }, [addToCart]);
+  const handleAddToCart = useCallback(
+    (product, qty = 1) => {
+      addToCart(product, qty);
+      toast.success(`✅ ${product.name} cart में add!`);
+    },
+    [addToCart],
+  );
 
   const handlePay = useCallback((order) => {
     if (!order.isPaid) {
@@ -345,7 +439,7 @@ const AIAssistant = () => {
           <AarohiAvatar size={32} className="w-full h-full p-1" />
           {unreadCount > 0 && (
             <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center shadow-lg border-2 border-white">
-              {unreadCount > 9 ? '9+' : unreadCount}
+              {unreadCount > 9 ? "9+" : unreadCount}
             </div>
           )}
         </button>
@@ -357,7 +451,9 @@ const AIAssistant = () => {
             <div className="bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 px-5 py-4 flex items-center gap-4 shadow-xl">
               <AarohiAvatar size={32} />
               <div className="min-w-0 flex-1">
-                <h2 className="text-white font-bold text-lg truncate">🧡 Aarohi</h2>
+                <h2 className="text-white font-bold text-lg truncate">
+                  🧡 Aarohi
+                </h2>
                 <div className="flex items-center gap-2 text-xs text-white/90 font-medium">
                   <div className="w-2.5 h-2.5 bg-emerald-400 rounded-full shadow-lg animate-ping" />
                   Online & Ready
@@ -373,12 +469,22 @@ const AIAssistant = () => {
             </div>
 
             {/* Messages */}
-            <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-5 space-y-4 scrollbar-thin scrollbar-thumb-violet-200 scrollbar-track-white/50">
+            <div
+              ref={chatContainerRef}
+              className="flex-1 overflow-y-auto p-5 space-y-4 scrollbar-thin scrollbar-thumb-violet-200 scrollbar-track-white/50"
+            >
               {messages.map((msg) => (
-                <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end gap-2" : "gap-3"}`}>
-                  <div className={`flex flex-col ${msg.role === "user" ? "items-end" : "items-start"} max-w-[90%]`}>
+                <div
+                  key={msg.id}
+                  className={`flex ${msg.role === "user" ? "justify-end gap-2" : "gap-3"}`}
+                >
+                  <div
+                    className={`flex flex-col ${msg.role === "user" ? "items-end" : "items-start"} max-w-[90%]`}
+                  >
                     <MessageBubble message={msg} role={msg.role} />
-                    <p className={`text-[11px] ${msg.role === "user" ? "text-violet-100 ml-2" : "text-gray-400"} mt-1.5 px-1 font-medium`}>
+                    <p
+                      className={`text-[11px] ${msg.role === "user" ? "text-violet-100 ml-2" : "text-gray-400"} mt-1.5 px-1 font-medium`}
+                    >
                       {msg.time}
                     </p>
                   </div>
@@ -419,8 +525,8 @@ const AIAssistant = () => {
                   type="button"
                   onClick={toggleVoice}
                   className={`p-2.5 rounded-2xl transition-all ml-2 flex-shrink-0 ${
-                    isListening 
-                      ? "bg-red-100 text-red-500 hover:bg-red-200 shadow-md" 
+                    isListening
+                      ? "bg-red-100 text-red-500 hover:bg-red-200 shadow-md"
                       : "text-violet-500 hover:bg-violet-100 hover:text-violet-600"
                   }`}
                   disabled={loading}
@@ -433,7 +539,11 @@ const AIAssistant = () => {
                   disabled={!input.trim() || loading}
                   className="ml-2 w-12 h-12 bg-gradient-to-br from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-2xl flex items-center justify-center shadow-xl hover:shadow-2xl active:scale-95 transition-all flex-shrink-0"
                 >
-                  {loading ? <Loader2 size={20} className="animate-spin" /> : <Send size={20} />}
+                  {loading ? (
+                    <Loader2 size={20} className="animate-spin" />
+                  ) : (
+                    <Send size={20} />
+                  )}
                 </button>
               </div>
             </div>
@@ -447,13 +557,17 @@ const AIAssistant = () => {
           amount={pendingOrder.totalPrice}
           onSuccess={() => {
             toast.success("🎉 Payment successful! Order confirmed.");
-            setMessages((prev) => [...prev, {
-              id: Date.now(),
-              role: "assistant",
-              content: "✅ Payment successful! आपका order processing में है 🚀",
-              type: 'text',
-              time: formatTime(new Date()),
-            }]);
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: Date.now(),
+                role: "assistant",
+                content:
+                  "✅ Payment successful! आपका order processing में है 🚀",
+                type: "text",
+                time: formatTime(new Date()),
+              },
+            ]);
             setShowPaymentModal(false);
             setPendingOrder(null);
           }}

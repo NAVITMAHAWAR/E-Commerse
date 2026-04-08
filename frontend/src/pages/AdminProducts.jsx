@@ -106,7 +106,7 @@ const AdminProducts = () => {
       {/* Floating Add Button */}
       <Link
         to="/admin/products/add"
-        className="fixed bottom-8 right-8 z-50 w-16 h-16 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 rounded-full shadow-2xl hover:shadow-3xl flex items-center justify-center text-white transition-all hover:scale-110 active:scale-95"
+        className="fixed bottom-30 right-8 z-50 w-16 h-16 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 rounded-full shadow-2xl hover:shadow-3xl flex items-center justify-center text-white transition-all hover:scale-110 active:scale-95"
       >
         <Plus className="w-8 h-8" strokeWidth={2.5} />
       </Link>

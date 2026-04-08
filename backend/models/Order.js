@@ -23,6 +23,18 @@ const orderSchema = new mongoose.Schema(
       },
     ],
 
+    orderStatus: {
+      type: String,
+      enum: [
+        "Pending",
+        "Processing",
+        "Shipped",
+        "Out for Delivery",
+        "Delivered",
+      ],
+      default: "Pending",
+    },
+
     shippingAddress: {
       address: { type: String, required: true },
       city: { type: String, required: true },
@@ -57,6 +69,12 @@ const orderSchema = new mongoose.Schema(
     deliveredAt: {
       type: Date,
     },
+    trackingSteps: [
+      {
+        status: String,
+        date: Date,
+      },
+    ],
   },
   { timestamps: true },
 );

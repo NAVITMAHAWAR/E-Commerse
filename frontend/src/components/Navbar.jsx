@@ -11,7 +11,12 @@ import {
   X,
   Search,
   ShoppingBag,
+  HelpCircle,
   ChevronDown,
+  Home,
+  Package,
+  LayoutGrid,
+  Percent,
 } from "lucide-react";
 
 const Navbar = () => {
@@ -53,6 +58,35 @@ const Navbar = () => {
     }
   };
 
+  // Icon mapping for mobile menu
+  const getMobileIcon = (path) => {
+    switch (path) {
+      case "/":
+        return <Home className="w-6 h-6" />;
+      case "/shop":
+        return <Package className="w-6 h-6" />;
+      case "/category":
+        return <LayoutGrid className="w-6 h-6" />;
+      case "/deals":
+        return <Percent className="w-6 h-6" />;
+      case "/help":
+        return <HelpCircle className="w-6 h-6" />;
+      case "/cart":
+        return (
+          <div className="relative">
+            <ShoppingCart className="w-6 h-6" />
+            {cartItemCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-gradient-to-br from-red-500 to-rose-600 text-white text-xs font-bold rounded-full min-w-[20px] h-5 flex items-center justify-center px-1.5">
+                {cartItemCount}
+              </span>
+            )}
+          </div>
+        );
+      default:
+        return <ShoppingBag className="w-6 h-6" />;
+    }
+  };
+
   return (
     <>
       <nav
@@ -76,7 +110,7 @@ const Navbar = () => {
 
             {/* Desktop Links */}
             <div className="hidden lg:flex items-center gap-10">
-              {["/", "/shop", "/category", "/deals"].map((path) => (
+              {["/", "/shop", "/category", "/deals", "/help"].map((path) => (
                 <NavLink
                   key={path}
                   to={path}
@@ -278,7 +312,7 @@ const Navbar = () => {
 
               <div className="p-6 space-y-6">
                 <div className="space-y-3">
-                  {["/", "/shop", "/category", "/deals", "/cart"].map(
+                  {["/", "/shop", "/category", "/deals", "/help", "/cart"].map(
                     (path) => (
                       <NavLink
                         key={path}
@@ -292,18 +326,7 @@ const Navbar = () => {
                         }
                         onClick={toggleMobileMenu}
                       >
-                        {path === "/cart" ? (
-                          <div className="relative">
-                            <ShoppingCart className="w-6 h-6" />
-                            {cartItemCount > 0 && (
-                              <span className="absolute -top-1 -right-1 bg-gradient-to-br from-red-500 to-rose-600 text-white text-xs font-bold rounded-full min-w-[20px] h-5 flex items-center justify-center px-1.5">
-                                {cartItemCount}
-                              </span>
-                            )}
-                          </div>
-                        ) : (
-                          <ShoppingBag className="w-6 h-6" />
-                        )}
+                        {getMobileIcon(path)}
                         {path === "/"
                           ? "Home"
                           : path.slice(1).charAt(0).toUpperCase() +

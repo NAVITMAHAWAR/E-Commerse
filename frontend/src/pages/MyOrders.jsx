@@ -337,6 +337,52 @@ const MyOrders = () => {
                                 </div>
                               </motion.div>
                             ))}
+
+                            {/* Tracking History Section */}
+                            <div className="mt-10">
+                              <h4 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3 mb-8">
+                                <Truck className="w-7 h-7 text-blue-600 dark:text-blue-400" />
+                                Tracking History
+                              </h4>
+
+                              {order.trackingSteps &&
+                              order.trackingSteps.length > 0 ? (
+                                <div className="space-y-4 max-h-96 overflow-y-auto">
+                                  {order.trackingSteps.map((step, index) => (
+                                    <motion.div
+                                      key={index}
+                                      initial={{ opacity: 0, x: -20 }}
+                                      animate={{ opacity: 1, x: 0 }}
+                                      className="group bg-gradient-to-r from-blue-50/80 to-indigo-50/80 dark:from-blue-950/40 dark:to-indigo-900/30 backdrop-blur-xl rounded-2xl p-6 border border-blue-200/60 dark:border-blue-800/50 hover:border-blue-300 dark:hover:border-blue-600 shadow-sm hover:shadow-md transition-all border-l-4 border-blue-400 dark:border-blue-500"
+                                    >
+                                      <div className="flex items-start justify-between">
+                                        <p className="font-semibold text-gray-900 dark:text-white text-lg leading-tight">
+                                          {step.status}
+                                        </p>
+                                        <div className="flex items-center gap-2 ml-4">
+                                          <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse" />
+                                          <small className="text-sm text-gray-500 dark:text-gray-400 font-mono tracking-wide">
+                                            {new Date(
+                                              step.date,
+                                            ).toLocaleString()}
+                                          </small>
+                                        </div>
+                                      </div>
+                                    </motion.div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="text-center py-12 bg-gradient-to-r from-gray-50/50 to-gray-100/50 dark:from-gray-900/30 dark:to-gray-800/30 rounded-2xl border-2 border-dashed border-gray-300 dark:border-gray-600">
+                                  <Truck className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                                  <p className="text-lg text-gray-500 dark:text-gray-400 font-medium">
+                                    Tracking updates will appear here
+                                  </p>
+                                  <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
+                                    Real-time status from dispatch to delivery
+                                  </p>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </motion.div>

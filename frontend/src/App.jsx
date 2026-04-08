@@ -21,6 +21,9 @@ import CategoryPage from "./pages/Category";
 import Deals from "./pages/Deals";
 import Shop from "./pages/Shop";
 import AIAssistant from "./components/AIAssistant";
+import Footer from "./components/Footer";
+import HelpCenter from "./pages/HelpCenter";
+
 const App = () => {
   return (
     <>
@@ -34,6 +37,7 @@ const App = () => {
         <Route path="/shop" element={<Shop />} />
         <Route path="/category" element={<CategoryPage />} />
         <Route path="/deals" element={<Deals />} />
+        <Route path="/help" element={<HelpCenter />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password/:token" element={<ResetPassword />} />
 
@@ -91,6 +95,7 @@ const App = () => {
           }
         />
       </Routes>
+      <Footer />
       <AIAssistant />
     </>
   );

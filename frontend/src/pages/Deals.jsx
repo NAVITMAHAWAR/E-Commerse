@@ -1,863 +1,1130 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  Box,
-  Grid,
-  Card,
-  CardMedia,
-  CardContent,
-  Typography,
-  Button,
-  Chip,
-  IconButton,
-  Avatar,
-  useTheme,
-  useMediaQuery,
-  LinearProgress,
-} from "@mui/material";
-import {
-  ShoppingCartOutlined,
-  HeartOutlined,
-  ThunderboltOutlined,
-  FireOutlined,
-  ClockCircleOutlined,
-  StarOutlined,
-  RightOutlined,
-} from "@ant-design/icons";
-import { Rate } from "antd";
 import { getProducts } from "../api/productApi";
 import { useCart } from "../context/CartContext";
 import toast, { Toaster } from "react-hot-toast";
-import CountUp from "react-countup";
 
-// Deal types
-const DEAL_TYPES = {
-  FLASH: {
-    id: "flash",
-    name: "Flash Sales",
-    icon: <ThunderboltOutlined />,
-    color: "#F59E0B",
-    bg: "linear-gradient(135deg, #F59E0B 0%, #EF4444 100%)",
-  },
-  HOT: {
-    id: "hot",
-    name: "Hot Deals",
-    icon: <FireOutlined />,
-    color: "#EF4444",
-    bg: "linear-gradient(135deg, #EF4444 0%, #DC2626 100%)",
-  },
-  LIMITED: {
-    id: "limited",
-    name: "Limited Time",
-    icon: <ClockCircleOutlined />,
-    color: "#8B5CF6",
-    bg: "linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%)",
-  },
-  BEST: {
-    id: "best",
-    name: "Best Sellers",
-    icon: <StarOutlined />,
-    color: "#10B981",
-    bg: "linear-gradient(135deg, #10B981 0%, #059669 100%)",
-  },
+/* ── Font Injection ────────────────────────────────────── */
+const Fonts = () => (
+  <style>{`
+    @import url('https://fonts.googleapis.com/css2?family=Cabinet+Grotesk:wght@400;500;700;800;900&family=Fraunces:ital,wght@0,300;0,700;0,900;1,300;1,700&display=swap');
+    .deals-root { font-family: 'Cabinet Grotesk', sans-serif; }
+    .font-display { font-family: 'Fraunces', serif; }
+    @keyframes tick { from{transform:translateY(0)} 50%{transform:translateY(-2px)} to{transform:translateY(0)} }
+    @keyframes pulse-ring { 0%{box-shadow:0 0 0 0 rgba(239,68,68,0.4)} 70%{box-shadow:0 0 0 12px rgba(239,68,68,0)} 100%{box-shadow:0 0 0 0 rgba(239,68,68,0)} }
+    @keyframes shimmer { from{background-position:200% 0} to{background-position:-200% 0} }
+    @keyframes float { 0%,100%{transform:translateY(0) rotate(0deg)} 33%{transform:translateY(-18px) rotate(3deg)} 66%{transform:translateY(-8px) rotate(-2deg)} }
+    @keyframes marquee { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+    @keyframes scanline { 0%{top:-10%} 100%{top:110%} }
+    .skel { background:linear-gradient(90deg,#1e1e2e 0%,#2a2a3e 50%,#1e1e2e 100%); background-size:200% 100%; animation:shimmer 1.6s infinite; }
+    .ticker-inner { display:flex; white-space:nowrap; animation:marquee 22s linear infinite; }
+    .sec-num { font-family:'Fraunces',serif; font-size:5rem; font-weight:900; line-height:1; opacity:0.06; position:absolute; top:-1rem; left:-1rem; color:white; pointer-events:none; }
+  `}</style>
+);
+
+/* ── Countdown Timer ───────────────────────────────────── */
+const useCountdown = (target) => {
+  const [t, setT] = useState({ d: 0, h: 0, m: 0, s: 0 });
+  useEffect(() => {
+    const tick = () => {
+      const diff = new Date(target) - Date.now();
+      if (diff <= 0) {
+        setT({ d: 0, h: 0, m: 0, s: 0 });
+        return;
+      }
+      setT({
+        d: Math.floor(diff / 86400000),
+        h: Math.floor((diff % 86400000) / 3600000),
+        m: Math.floor((diff % 3600000) / 60000),
+        s: Math.floor((diff % 60000) / 1000),
+      });
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [target]);
+  return t;
 };
 
-// Countdown Timer Component
-const CountdownTimer = ({ targetDate }) => {
-  const [timeLeft, setTimeLeft] = useState({
-    days: 0,
-    hours: 0,
-    minutes: 0,
-    seconds: 0,
-  });
+const TimerBox = ({ val, label, accent = "text-red-400" }) => (
+  <div className="flex flex-col items-center">
+    <div className="relative bg-white/10 backdrop-blur-sm border border-white/20 rounded px-3 py-2 min-w-[52px] text-center overflow-hidden">
+      <div className="absolute inset-x-0 top-1/2 h-px bg-white/10" />
+      <span
+        className="font-display text-2xl font-black text-white tracking-tight"
+        style={{ animation: "tick 1s ease infinite" }}
+      >
+        {String(val).padStart(2, "0")}
+      </span>
+    </div>
+    <span className="text-[9px] tracking-widest uppercase mt-1.5 text-white/50 font-medium">
+      {label}
+    </span>
+  </div>
+);
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const now = new Date().getTime();
-      const distance = new Date(targetDate).getTime() - now;
-
-      if (distance < 0) {
-        clearInterval(interval);
-        setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
-      } else {
-        setTimeLeft({
-          days: Math.floor(distance / (1000 * 60 * 60 * 24)),
-          hours: Math.floor(
-            (distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60),
-          ),
-          minutes: Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60)),
-          seconds: Math.floor((distance % (1000 * 60)) / 1000),
-        });
-      }
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [targetDate]);
-
+const Countdown = ({ target, size = "md" }) => {
+  const t = useCountdown(target);
   return (
-    <Box sx={{ display: "flex", gap: 1 }}>
+    <div className="flex items-end gap-2">
       {[
-        { value: timeLeft.days, label: "Days" },
-        { value: timeLeft.hours, label: "Hours" },
-        { value: timeLeft.minutes, label: "Mins" },
-        { value: timeLeft.seconds, label: "Secs" },
-      ].map((item, index) => (
-        <Box key={index} sx={{ textAlign: "center" }}>
-          <Box
-            sx={{
-              bgcolor: "white",
-              borderRadius: 2,
-              px: 1.5,
-              py: 0.5,
-              minWidth: 45,
-            }}
-          >
-            <Typography
-              variant="h6"
-              sx={{ fontWeight: 800, color: "#EF4444", lineHeight: 1 }}
-            >
-              {String(item.value).padStart(2, "0")}
-            </Typography>
-          </Box>
-          <Typography
-            variant="caption"
-            sx={{ color: "white", fontSize: "0.6rem", fontWeight: 600 }}
-          >
-            {item.label}
-          </Typography>
-        </Box>
+        { v: t.d, l: "Days" },
+        { v: t.h, l: "Hrs" },
+        { v: t.m, l: "Min" },
+        { v: t.s, l: "Sec" },
+      ].map((x, i) => (
+        <React.Fragment key={x.l}>
+          <TimerBox val={x.v} label={x.l} />
+          {i < 3 && (
+            <span className="text-white/40 text-lg font-black mb-3">:</span>
+          )}
+        </React.Fragment>
       ))}
-    </Box>
+    </div>
   );
 };
 
-// Animated Counter
-const AnimatedCounter = ({ value, suffix = "" }) => (
-  <CountUp end={value} duration={2} separator="," suffix={suffix} />
-);
+/* ── Utilities ─────────────────────────────────────────── */
+const fmt = (n) => Number(n || 0).toLocaleString("en-IN");
+const pct = (p, o) => (o ? Math.round(((o - p) / o) * 100) : 0);
+const img = (src, seed) => src || `https://picsum.photos/seed/${seed}/500/600`;
 
-// Flash Deal Card
-const FlashDealCard = ({ product, index }) => {
+/* ── Progress Bar ──────────────────────────────────────── */
+const StockBar = ({ stock = 0, total = 50 }) => {
+  const pctSold = Math.min(100, Math.round(((total - stock) / total) * 100));
+  const color =
+    pctSold > 80
+      ? "bg-red-500"
+      : pctSold > 50
+        ? "bg-amber-400"
+        : "bg-emerald-400";
+  return (
+    <div className="space-y-1">
+      <div className="flex justify-between items-center">
+        <span className="text-[10px] font-bold text-red-400 tracking-wider uppercase">
+          {stock > 0 ? `${stock} left` : "Sold out"}
+        </span>
+        <span className="text-[10px] text-white/40">{pctSold}% sold</span>
+      </div>
+      <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+        <motion.div
+          className={`h-full rounded-full ${color}`}
+          initial={{ width: 0 }}
+          animate={{ width: `${pctSold}%` }}
+          transition={{ duration: 1.2, delay: 0.3, ease: "easeOut" }}
+        />
+      </div>
+    </div>
+  );
+};
+
+/* ── Flash Deal Card ───────────────────────────────────── */
+const FlashCard = ({ product, index }) => {
   const { addToCart } = useCart();
-  const [isHovered, setIsHovered] = useState(false);
-  const [imgSeed] = useState(() => Math.floor(Math.random() * 10000));
+  const [seed] = useState(() => Math.floor(Math.random() * 9999));
+  const [hovered, setHovered] = useState(false);
+  const d = pct(product.price, product.originalPrice);
+  const endTime = useMemo(
+    () => new Date(Date.now() + (18 + index * 2) * 3600000),
+    [index],
+  );
+  const t = useCountdown(endTime);
 
-  const discount = product.originalPrice
-    ? Math.round(
-        ((product.originalPrice - product.price) / product.originalPrice) * 100,
-      )
-    : 0;
-
-  const stockPercentage = Math.min((product.countInStock / 50) * 100, 100);
-
-  const handleAddToCart = () => {
+  const onCart = () => {
     addToCart(product, 1);
-    toast.success(
-      <div className="flex items-center gap-3">
-        <span className="text-xl">🛒</span>
-        <span>{product.name?.slice(0, 25)} added!</span>
-      </div>,
-      { duration: 2500, iconTheme: { primary: "#F59E0B", secondary: "#fff" } },
-    );
+    toast.success("Added to cart! 🛒", {
+      style: {
+        background: "#1a1a2e",
+        color: "#f8f8f0",
+        border: "1px solid rgba(251,191,36,0.3)",
+        fontFamily: "Cabinet Grotesk, sans-serif",
+        fontSize: "13px",
+      },
+    });
   };
-
-  // Random end time for demo (24 hours from now)
-  const endTime = useMemo(() => {
-    const date = new Date();
-    date.setHours(date.getHours() + 24);
-    return date;
-  }, []);
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 30, scale: 0.95 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
+      className="group relative bg-[#111827] border border-white/[0.07] overflow-hidden flex flex-col"
+      initial={{ opacity: 0, y: 24 }}
+      animate={{ opacity: 1, y: 0 }}
       transition={{
-        delay: index * 0.1,
+        delay: index * 0.07,
         type: "spring",
-        stiffness: 100,
-        damping: 12,
+        stiffness: 80,
+        damping: 16,
       }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
     >
-      <Card
-        sx={{
-          position: "relative",
-          borderRadius: 4,
-          overflow: "visible",
-          transition: "all 0.4s",
-          "&:hover": {
-            transform: "translateY(-8px)",
-            boxShadow: "0 20px 40px rgba(245, 158, 11, 0.25)",
-          },
-        }}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
-      >
-        {/* Deal Badge */}
-        <Box sx={{ position: "absolute", top: -12, left: 16, zIndex: 10 }}>
-          <Chip
-            icon={<ThunderboltOutlined style={{ color: "white" }} />}
-            label="FLASH SALE"
-            sx={{
-              bgcolor: "#F59E0B",
-              color: "white",
-              fontWeight: 800,
-              fontSize: "0.7rem",
-              height: 28,
-              borderRadius: 2,
-              boxShadow: "0 4px 12px rgba(245, 158, 11, 0.4)",
-            }}
+      {/* Scanline effect on hover */}
+      {hovered && (
+        <div className="pointer-events-none absolute inset-0 z-10 overflow-hidden">
+          <div
+            className="absolute w-full h-8 bg-gradient-to-b from-transparent via-white/[0.03] to-transparent"
+            style={{ animation: "scanline 1.5s linear infinite" }}
           />
-        </Box>
+        </div>
+      )}
 
-        {/* Countdown */}
-        <Box
-          sx={{
-            bgcolor: "#FEF3C7",
-            py: 1,
-            px: 2,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 1,
+      {/* Timer bar */}
+      <div className="bg-gradient-to-r from-red-950/80 to-orange-950/80 border-b border-white/[0.06] px-3 py-2 flex items-center justify-between">
+        <div className="flex items-center gap-1.5">
+          <span className="text-red-400 text-xs">⚡</span>
+          <span className="text-[9px] tracking-[0.2em] uppercase font-bold text-red-400/80">
+            Ends in
+          </span>
+        </div>
+        <div className="flex items-center gap-1 text-white font-bold text-xs">
+          <span className="bg-white/10 px-1.5 py-0.5 rounded">
+            {String(t.h).padStart(2, "0")}
+          </span>
+          <span className="text-white/40">:</span>
+          <span className="bg-white/10 px-1.5 py-0.5 rounded">
+            {String(t.m).padStart(2, "0")}
+          </span>
+          <span className="text-white/40">:</span>
+          <span
+            className="bg-white/10 px-1.5 py-0.5 rounded"
+            style={{ color: "#f87171", animation: "tick 1s ease infinite" }}
+          >
+            {String(t.s).padStart(2, "0")}
+          </span>
+        </div>
+      </div>
+
+      {/* Image */}
+      <div className="relative overflow-hidden aspect-square">
+        <Link to={`/product/${product._id}`}>
+          <img
+            src={img(product.image, seed)}
+            alt={product.name}
+            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-108"
+            style={{ transform: hovered ? "scale(1.08)" : "scale(1)" }}
+            loading="lazy"
+            onError={(e) => (e.target.src = img(null, seed))}
+          />
+        </Link>
+        {/* Gradient overlay */}
+        <div className="absolute inset-0 bg-gradient-to-t from-[#111827] via-transparent to-transparent opacity-60" />
+
+        {/* Badges */}
+        {d > 0 && (
+          <div className="absolute top-3 left-3">
+            <div className="bg-red-500 text-white text-[10px] font-black tracking-wider px-2 py-0.5 uppercase">
+              -{d}%
+            </div>
+          </div>
+        )}
+
+        {/* Wishlist */}
+        <button
+          className="absolute top-3 right-3 w-8 h-8 bg-black/60 backdrop-blur-sm border border-white/10 flex items-center justify-center text-white/50 hover:text-red-400 hover:border-red-400/40 transition-all opacity-0 group-hover:opacity-100"
+          onClick={(e) => {
+            e.preventDefault();
+            toast("Added to wishlist ♡", {
+              style: {
+                background: "#1a1a2e",
+                color: "#f8f8f0",
+                border: "1px solid rgba(239,68,68,0.3)",
+                fontFamily: "Cabinet Grotesk,sans-serif",
+                fontSize: "13px",
+              },
+            });
           }}
         >
-          <ClockCircleOutlined style={{ color: "#F59E0B" }} />
-          <CountdownTimer targetDate={endTime} />
-        </Box>
+          ♡
+        </button>
 
-        <Link to={`/product/${product._id}`}>
-          <Box sx={{ position: "relative", overflow: "hidden" }}>
-            <CardMedia
-              component="img"
-              image={
-                product.image || `https://picsum.photos/seed/${imgSeed}/400/500`
-              }
-              alt={product.name}
-              sx={{
-                aspectRatio: "1",
-                objectFit: "cover",
-                transition: "transform 0.6s",
-                transform: isHovered ? "scale(1.08)" : "scale(1)",
-              }}
-            />
-            <Box sx={{ position: "absolute", top: 8, right: 8 }}>
-              {discount > 0 && (
-                <Chip
-                  label={`-${discount}%`}
-                  size="small"
-                  sx={{
-                    bgcolor: "#EF4444",
-                    color: "white",
-                    fontWeight: "bold",
-                    height: 24,
-                  }}
-                />
-              )}
-            </Box>
-          </Box>
-        </Link>
+        {/* Flash tag */}
+        <div className="absolute bottom-2 left-2 flex items-center gap-1 bg-amber-400/90 backdrop-blur-sm px-2 py-0.5">
+          <span className="text-[9px] font-black text-black tracking-widest uppercase">
+            Flash
+          </span>
+        </div>
+      </div>
 
-        <CardContent sx={{ p: 2 }}>
-          <Typography
-            variant="caption"
-            sx={{
-              color: "#6B7280",
-              textTransform: "uppercase",
-              fontSize: "0.65rem",
-              fontWeight: 600,
-            }}
-          >
+      {/* Info */}
+      <div className="flex-1 flex flex-col p-3.5 gap-2.5">
+        <div>
+          <div className="text-[9px] tracking-[0.2em] uppercase text-white/30 mb-1">
             {product.category || "Deal"}
-          </Typography>
-          <Typography
-            variant="h6"
-            sx={{
-              fontWeight: 700,
-              fontSize: "0.95rem",
-              mb: 1,
-              display: "-webkit-box",
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: "vertical",
-              overflow: "hidden",
-            }}
-          >
-            {product.name}
-          </Typography>
+          </div>
+          <Link to={`/product/${product._id}`}>
+            <h3 className="text-sm font-semibold text-white/90 leading-tight line-clamp-2 hover:text-amber-400 transition-colors">
+              {product.name}
+            </h3>
+          </Link>
+        </div>
 
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1.5 }}>
-            <Rate
-              disabled
-              defaultValue={product.rating || 4.5}
-              style={{ fontSize: 12 }}
-            />
-            <Typography variant="caption" sx={{ color: "#9CA3AF" }}>
-              ({product.numReviews || 0})
-            </Typography>
-          </Box>
-
-          <Box sx={{ display: "flex", alignItems: "baseline", gap: 1, mb: 1 }}>
-            <Typography
-              variant="h5"
-              sx={{ fontWeight: 800, color: "#F59E0B", fontSize: "1.3rem" }}
-            >
-              ₹<AnimatedCounter value={product.price} />
-            </Typography>
-            {product.originalPrice && (
-              <Typography
-                variant="body2"
-                sx={{ color: "#9CA3AF", textDecoration: "line-through" }}
+        {/* Stars */}
+        <div className="flex items-center gap-1.5">
+          <div className="flex gap-0.5">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <span
+                key={i}
+                className={`text-[11px] ${i <= Math.round(product.rating || 4) ? "text-amber-400" : "text-white/15"}`}
               >
-                ₹{product.originalPrice.toLocaleString("en-IN")}
-              </Typography>
-            )}
-          </Box>
+                ★
+              </span>
+            ))}
+          </div>
+          <span className="text-[10px] text-white/30">
+            ({product.numReviews || 0})
+          </span>
+        </div>
 
-          {/* Stock Progress */}
-          <Box sx={{ mb: 2 }}>
-            <Box
-              sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}
-            >
-              <Typography
-                variant="caption"
-                sx={{ color: "#EF4444", fontWeight: 600 }}
-              >
-                {product.countInStock} left!
-              </Typography>
-              <Typography variant="caption" sx={{ color: "#6B7280" }}>
-                {Math.round(stockPercentage)}% sold
-              </Typography>
-            </Box>
-            <LinearProgress
-              variant="determinate"
-              value={stockPercentage}
-              sx={{
-                height: 6,
-                borderRadius: 3,
-                bgcolor: "#FEE2E2",
-                "& .MuiLinearProgress-bar": {
-                  bgcolor: "#EF4444",
-                  borderRadius: 3,
-                },
-              }}
-            />
-          </Box>
+        {/* Price */}
+        <div className="flex items-baseline gap-2">
+          <span className="font-display text-xl font-bold text-amber-400">
+            ₹{fmt(product.price)}
+          </span>
+          {product.originalPrice && (
+            <span className="text-xs text-white/30 line-through">
+              ₹{fmt(product.originalPrice)}
+            </span>
+          )}
+        </div>
 
-          <Button
-            fullWidth
-            variant="contained"
-            onClick={handleAddToCart}
-            startIcon={<ShoppingCartOutlined />}
-            sx={{
-              bgcolor: "#F59E0B",
-              color: "white",
-              fontWeight: 700,
-              borderRadius: 3,
-              py: 1.5,
-              boxShadow: "0 4px 12px rgba(245, 158, 11, 0.3)",
-              "&:hover": { bgcolor: "#D97706" },
-            }}
-          >
-            Add to Cart
-          </Button>
-        </CardContent>
-      </Card>
+        {/* Stock bar */}
+        <StockBar stock={product.countInStock || 8} />
+
+        {/* CTA */}
+        <button
+          onClick={onCart}
+          className="mt-auto w-full bg-amber-400 hover:bg-amber-300 text-black text-[11px] font-black tracking-widest uppercase py-2.5 transition-all duration-200 active:scale-98"
+        >
+          Add to Cart →
+        </button>
+      </div>
     </motion.div>
   );
 };
 
-// Hot Deal Card
-const HotDealCard = ({ product, index }) => {
+/* ── Hot Deal Row Card ─────────────────────────────────── */
+const HotRow = ({ product, index }) => {
   const { addToCart } = useCart();
-  const [isHovered, setIsHovered] = useState(false);
-  const [imgSeed] = useState(() => Math.floor(Math.random() * 10000));
-
-  const discount = product.originalPrice
-    ? Math.round(
-        ((product.originalPrice - product.price) / product.originalPrice) * 100,
-      )
-    : 0;
+  const [seed] = useState(() => Math.floor(Math.random() * 9999));
+  const d = pct(product.price, product.originalPrice);
 
   return (
     <motion.div
+      className="group flex bg-[#111827] border border-white/[0.07] overflow-hidden hover:border-red-500/20 transition-all duration-300"
       initial={{ opacity: 0, x: -20 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay: index * 0.08 }}
     >
-      <Card
-        sx={{
-          display: "flex",
-          borderRadius: 4,
-          overflow: "hidden",
-          transition: "all 0.3s",
-          "&:hover": { boxShadow: "0 12px 24px rgba(239, 68, 68, 0.15)" },
-        }}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
-      >
-        <Box sx={{ position: "relative", width: 140, flexShrink: 0 }}>
-          <CardMedia
-            component="img"
-            image={
-              product.image || `https://picsum.photos/seed/${imgSeed}/200/200`
-            }
+      {/* Image */}
+      <div className="relative w-28 shrink-0 overflow-hidden">
+        <Link to={`/product/${product._id}`}>
+          <img
+            src={img(product.image, seed)}
             alt={product.name}
-            sx={{ width: "100%", height: "100%", objectFit: "cover" }}
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+            loading="lazy"
+            onError={(e) => (e.target.src = img(null, seed))}
           />
-          {discount > 0 && (
-            <Chip
-              label={`-${discount}%`}
-              size="small"
-              sx={{
-                position: "absolute",
-                top: 8,
-                left: 8,
-                bgcolor: "#EF4444",
-                color: "white",
-                fontWeight: "bold",
-                height: 22,
-              }}
-            />
-          )}
-        </Box>
-        <CardContent
-          sx={{
-            flex: 1,
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "center",
-            p: 2,
-          }}
-        >
-          <Typography
-            variant="caption"
-            sx={{
-              color: "#6B7280",
-              textTransform: "uppercase",
-              fontSize: "0.6rem",
-            }}
-          >
-            {product.category || "Hot Deal"}
-          </Typography>
-          <Typography
-            variant="subtitle1"
-            sx={{ fontWeight: 700, fontSize: "0.95rem", mb: 0.5 }}
-          >
-            {product.name?.slice(0, 40)}
-          </Typography>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 1 }}>
-            <Rate
-              disabled
-              defaultValue={product.rating || 4}
-              style={{ fontSize: 10 }}
-            />
-          </Box>
-          <Box sx={{ display: "flex", alignItems: "baseline", gap: 1 }}>
-            <Typography
-              variant="h6"
-              sx={{ fontWeight: 800, color: "#EF4444", fontSize: "1.1rem" }}
-            >
-              ₹{product.price.toLocaleString("en-IN")}
-            </Typography>
-            {product.originalPrice && (
-              <Typography
-                variant="caption"
-                sx={{ color: "#9CA3AF", textDecoration: "line-through" }}
+        </Link>
+        {d > 0 && (
+          <div className="absolute top-0 left-0 bg-red-500 text-white text-[9px] font-black px-1.5 py-0.5">
+            -{d}%
+          </div>
+        )}
+      </div>
+
+      {/* Info */}
+      <div className="flex-1 p-3 flex flex-col justify-between">
+        <div>
+          <div className="text-[9px] tracking-[0.2em] uppercase text-white/25 mb-0.5">
+            {product.category || "Hot"}
+          </div>
+          <Link to={`/product/${product._id}`}>
+            <h4 className="text-sm font-semibold text-white/90 line-clamp-1 hover:text-red-400 transition-colors">
+              {product.name}
+            </h4>
+          </Link>
+          <div className="flex items-center gap-1 mt-1">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <span
+                key={i}
+                className={`text-[10px] ${i <= Math.round(product.rating || 4) ? "text-amber-400" : "text-white/15"}`}
               >
-                ₹{product.originalPrice.toLocaleString("en-IN")}
-              </Typography>
+                ★
+              </span>
+            ))}
+          </div>
+        </div>
+        <div className="flex items-center justify-between mt-2">
+          <div className="flex items-baseline gap-1.5">
+            <span className="font-display text-base font-bold text-red-400">
+              ₹{fmt(product.price)}
+            </span>
+            {product.originalPrice && (
+              <span className="text-[10px] text-white/25 line-through">
+                ₹{fmt(product.originalPrice)}
+              </span>
             )}
-          </Box>
-          <Button
-            size="small"
+          </div>
+          <button
             onClick={() => {
               addToCart(product, 1);
-              toast.success("Added to cart!");
+              toast.success("Added! 🛒", {
+                style: {
+                  background: "#1a1a2e",
+                  color: "#f8f8f0",
+                  border: "1px solid rgba(239,68,68,0.3)",
+                  fontFamily: "Cabinet Grotesk,sans-serif",
+                  fontSize: "13px",
+                },
+              });
             }}
-            sx={{
-              mt: 1,
-              borderRadius: 2,
-              bgcolor: "#FEE2E2",
-              color: "#EF4444",
-              "&:hover": { bgcolor: "#FECACA" },
-            }}
+            className="bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white text-[10px] font-bold tracking-wider uppercase px-2.5 py-1.5 border border-red-500/20 hover:border-red-500 transition-all duration-200"
           >
-            Add to Cart
-          </Button>
-        </CardContent>
-      </Card>
+            Add
+          </button>
+        </div>
+      </div>
     </motion.div>
   );
 };
 
-// Main Deals Page
+/* ── Best Seller Card ──────────────────────────────────── */
+const BestCard = ({ product, index, rank }) => {
+  const { addToCart } = useCart();
+  const [seed] = useState(() => Math.floor(Math.random() * 9999));
+  const d = pct(product.price, product.originalPrice);
+
+  return (
+    <motion.div
+      className="group relative bg-[#111827] border border-white/[0.07] overflow-hidden"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.06 }}
+    >
+      {/* Rank badge */}
+      <div className="absolute top-2 left-2 z-10">
+        <div
+          className={`w-7 h-7 flex items-center justify-center text-xs font-black ${rank <= 3 ? "bg-amber-400 text-black" : "bg-white/10 text-white/60"}`}
+        >
+          #{rank}
+        </div>
+      </div>
+
+      <div className="relative overflow-hidden aspect-[3/4]">
+        <Link to={`/product/${product._id}`}>
+          <img
+            src={img(product.image, seed)}
+            alt={product.name}
+            className="w-full h-full object-cover transition-transform duration-600 group-hover:scale-107"
+            style={{ transform: "scale(1)" }}
+            loading="lazy"
+            onError={(e) => (e.target.src = img(null, seed))}
+          />
+        </Link>
+        <div className="absolute inset-0 bg-gradient-to-t from-[#111827] via-transparent to-transparent opacity-60" />
+        {d > 0 && (
+          <div className="absolute top-2 right-2 bg-emerald-500 text-white text-[9px] font-black px-1.5 py-0.5 uppercase">
+            -{d}%
+          </div>
+        )}
+        {/* Hover actions */}
+        <div className="absolute bottom-0 left-0 right-0 translate-y-full group-hover:translate-y-0 transition-transform duration-300 flex">
+          <Link
+            to={`/product/${product._id}`}
+            className="flex-1 bg-white/10 backdrop-blur-sm text-white text-[9px] font-bold tracking-widest uppercase py-2.5 text-center hover:bg-white/20 transition-colors border-r border-white/10"
+          >
+            View
+          </Link>
+          <button
+            onClick={() => {
+              addToCart(product, 1);
+              toast.success("Added! 🛒", {
+                style: {
+                  background: "#1a1a2e",
+                  color: "#f8f8f0",
+                  border: "1px solid rgba(16,185,129,0.3)",
+                  fontFamily: "Cabinet Grotesk,sans-serif",
+                  fontSize: "13px",
+                },
+              });
+            }}
+            className="flex-1 bg-emerald-500 text-white text-[9px] font-bold tracking-widest uppercase py-2.5 text-center hover:bg-emerald-400 transition-colors"
+          >
+            Cart
+          </button>
+        </div>
+      </div>
+
+      <div className="p-3">
+        <div className="text-[9px] tracking-[0.2em] uppercase text-white/25 mb-1">
+          {product.category || "Trending"}
+        </div>
+        <Link to={`/product/${product._id}`}>
+          <h4 className="text-xs font-semibold text-white/90 line-clamp-2 leading-tight hover:text-emerald-400 transition-colors">
+            {product.name}
+          </h4>
+        </Link>
+        <div className="flex items-baseline gap-1.5 mt-2">
+          <span className="font-display text-base font-bold text-emerald-400">
+            ₹{fmt(product.price)}
+          </span>
+          {product.originalPrice && (
+            <span className="text-[10px] text-white/25 line-through">
+              ₹{fmt(product.originalPrice)}
+            </span>
+          )}
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
+/* ── Limited Deal Card ─────────────────────────────────── */
+const LimitedCard = ({ product, index }) => {
+  const { addToCart } = useCart();
+  const [seed] = useState(() => Math.floor(Math.random() * 9999));
+  const d = pct(product.price, product.originalPrice);
+  const endTime = useMemo(
+    () => new Date(Date.now() + (6 + index) * 3600000),
+    [index],
+  );
+
+  return (
+    <motion.div
+      className="group flex flex-col bg-[#111827] border border-white/[0.07] overflow-hidden hover:border-violet-500/20 transition-all"
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ delay: index * 0.07 }}
+    >
+      <div className="relative overflow-hidden aspect-square">
+        <Link to={`/product/${product._id}`}>
+          <img
+            src={img(product.image, seed)}
+            alt={product.name}
+            className="w-full h-full object-cover transition-transform duration-600"
+            style={{ transform: "scale(1)" }}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.transform = "scale(1.08)")
+            }
+            onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
+            loading="lazy"
+            onError={(e) => (e.target.src = img(null, seed))}
+          />
+        </Link>
+        {d > 0 && (
+          <div className="absolute top-2 left-2 bg-violet-500 text-white text-[9px] font-black px-1.5 py-0.5">
+            -{d}%
+          </div>
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+        {/* Countdown overlay */}
+        <div className="absolute bottom-2 left-2 right-2 bg-black/70 backdrop-blur-sm px-2 py-1.5 flex items-center justify-between">
+          <span className="text-[9px] text-violet-300 font-bold tracking-wider uppercase">
+            ⏳ Limited
+          </span>
+          <LimitedTimer target={endTime} />
+        </div>
+      </div>
+      <div className="p-3 flex-1 flex flex-col">
+        <div className="text-[9px] tracking-[0.2em] uppercase text-white/25 mb-1">
+          {product.category || "Limited"}
+        </div>
+        <Link to={`/product/${product._id}`}>
+          <h4 className="text-xs font-semibold text-white/90 line-clamp-2 hover:text-violet-400 transition-colors">
+            {product.name}
+          </h4>
+        </Link>
+        <div className="flex items-baseline gap-1.5 mt-2 mb-3">
+          <span className="font-display text-base font-bold text-violet-400">
+            ₹{fmt(product.price)}
+          </span>
+          {product.originalPrice && (
+            <span className="text-[10px] text-white/25 line-through">
+              ₹{fmt(product.originalPrice)}
+            </span>
+          )}
+        </div>
+        <button
+          onClick={() => {
+            addToCart(product, 1);
+            toast.success("Added! 🛒", {
+              style: {
+                background: "#1a1a2e",
+                color: "#f8f8f0",
+                border: "1px solid rgba(139,92,246,0.3)",
+                fontFamily: "Cabinet Grotesk,sans-serif",
+                fontSize: "13px",
+              },
+            });
+          }}
+          className="mt-auto w-full bg-violet-500/10 hover:bg-violet-500 text-violet-400 hover:text-white text-[10px] font-bold tracking-widest uppercase py-2 border border-violet-500/20 hover:border-violet-500 transition-all duration-200"
+        >
+          Add to Cart
+        </button>
+      </div>
+    </motion.div>
+  );
+};
+
+const LimitedTimer = ({ target }) => {
+  const t = useCountdown(target);
+  return (
+    <span className="text-[10px] font-black text-white tabular-nums">
+      {String(t.h).padStart(2, "0")}:{String(t.m).padStart(2, "0")}:
+      {String(t.s).padStart(2, "0")}
+    </span>
+  );
+};
+
+/* ── Tab Config ────────────────────────────────────────── */
+const TABS = [
+  {
+    id: "flash",
+    label: "Flash Sales",
+    emoji: "⚡",
+    accent: "text-amber-400",
+    border: "border-amber-400",
+    bg: "bg-amber-400",
+    dark: "bg-amber-400/10",
+  },
+  {
+    id: "hot",
+    label: "Hot Deals",
+    emoji: "🔥",
+    accent: "text-red-400",
+    border: "border-red-400",
+    bg: "bg-red-500",
+    dark: "bg-red-500/10",
+  },
+  {
+    id: "limited",
+    label: "Limited Time",
+    emoji: "⏳",
+    accent: "text-violet-400",
+    border: "border-violet-400",
+    bg: "bg-violet-500",
+    dark: "bg-violet-500/10",
+  },
+  {
+    id: "best",
+    label: "Best Sellers",
+    emoji: "🏆",
+    accent: "text-emerald-400",
+    border: "border-emerald-400",
+    bg: "bg-emerald-500",
+    dark: "bg-emerald-500/10",
+  },
+];
+
+/* ── Section Header ────────────────────────────────────── */
+const SectionHead = ({ emoji, title, subtitle, accent, num }) => (
+  <div className="relative flex items-end justify-between mb-8">
+    <div className="sec-num">{num}</div>
+    <div>
+      <div className="flex items-center gap-2 mb-1">
+        <span className="text-base">{emoji}</span>
+        <span
+          className={`text-[10px] tracking-[0.3em] uppercase font-bold ${accent}`}
+        >
+          {subtitle}
+        </span>
+      </div>
+      <h2 className="font-display text-3xl md:text-4xl font-black text-white leading-none tracking-tight">
+        {title}
+      </h2>
+    </div>
+    <Link
+      to="/shop"
+      className={`text-[10px] tracking-[0.2em] uppercase font-bold border-b border-white/10 hover:border-white/40 text-white/40 hover:text-white/80 transition-all pb-0.5`}
+    >
+      View All →
+    </Link>
+  </div>
+);
+
+/* ── Skeleton ──────────────────────────────────────────── */
+const CardSkel = () => (
+  <div className="bg-[#111827] border border-white/[0.07]">
+    <div className="skel aspect-square" />
+    <div className="p-3.5 space-y-2.5">
+      <div className="skel h-3 w-2/3 rounded" />
+      <div className="skel h-3 rounded" />
+      <div className="skel h-5 w-1/3 rounded" />
+      <div className="skel h-8 rounded" />
+    </div>
+  </div>
+);
+
+/* ── Main Deals Component ──────────────────────────────── */
 const Deals = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("flash");
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+  const [tab, setTab] = useState("flash");
+  const heroEnd = useMemo(() => new Date(Date.now() + 24 * 3600000), []);
 
   useEffect(() => {
-    let mounted = true;
-    const fetchProducts = async () => {
+    let alive = true;
+    (async () => {
       try {
-    const data = await getProducts();
-    if (mounted) {
-      if (data && data.products) {
-        setProducts(data.products);
-      } else {
-        setProducts(Array.isArray(data) ? data : []);
-      }
-    }
-      } catch (err) {
-        console.error("Failed to load products");
+        const data = await getProducts();
+        if (alive)
+          setProducts(
+            Array.isArray(data?.products)
+              ? data.products
+              : Array.isArray(data)
+                ? data
+                : [],
+          );
+      } catch {
       } finally {
-        if (mounted) setLoading(false);
+        if (alive) setLoading(false);
       }
-    };
-    fetchProducts();
+    })();
     return () => {
-      mounted = false;
+      alive = false;
     };
   }, []);
 
-  // Get products with discounts for deals
-  const dealProducts = useMemo(() => {
-    if (!Array.isArray(products)) return [];
-    return products
-      .filter((p) => p.originalPrice && p.originalPrice > p.price)
-      .sort((a, b) => {
-        const discountA = ((a.originalPrice - a.price) / a.originalPrice) * 100;
-        const discountB = ((b.originalPrice - b.price) / b.originalPrice) * 100;
-        return discountB - discountA;
-      });
-  }, [products]);
+  const dealProds = useMemo(
+    () =>
+      products
+        .filter((p) => p.originalPrice && p.originalPrice > p.price)
+        .sort(
+          (a, b) =>
+            pct(b.price, b.originalPrice) - pct(a.price, a.originalPrice),
+        ),
+    [products],
+  );
 
-  const hotDeals = dealProducts.slice(0, 5);
-  const flashDeals = dealProducts.slice(0, 8);
-
-  const tabs = [
-    { ...DEAL_TYPES.FLASH, count: flashDeals.length },
-    { ...DEAL_TYPES.HOT, count: hotDeals.length },
-    { ...DEAL_TYPES.LIMITED, count: dealProducts.length },
-    { ...DEAL_TYPES.BEST, count: products.length },
-  ];
+  const flashDeals = dealProds.slice(0, 8);
+  const hotDeals = dealProds.slice(0, 6);
+  const limitedDels = dealProds.slice(0, 8);
+  const bestSellers = products.slice(0, 8);
+  const curTab = TABS.find((t) => t.id === tab);
 
   return (
-    <Box sx={{ minHeight: "100vh", bgcolor: "#0F172A", pb: 8 }}>
-      <Toaster
-        position="top-center"
-        toastOptions={{
-          duration: 3000,
-          style: { borderRadius: "12px", background: "#1F2937", color: "#fff" },
-        }}
-      />
+    <div className="deals-root min-h-screen bg-[#080810] text-white">
+      <Fonts />
+      <Toaster position="top-right" />
 
-      {/* Hero Section */}
-      <Box
-        sx={{
-          background:
-            "linear-gradient(135deg, #F59E0B 0%, #EF4444 50%, #8B5CF6 100%)",
-          py: { xs: 8, md: 14 },
-          position: "relative",
-          overflow: "hidden",
-        }}
-      >
-        {/* Animated Background */}
-        <Box sx={{ position: "absolute", inset: 0, overflow: "hidden" }}>
-          {[...Array(8)].map((_, i) => (
-            <motion.div
-              key={i}
-              animate={{
-                y: [0, -30, 0],
-                rotate: [0, 180, 360],
-                scale: [1, 1.2, 1],
-              }}
-              transition={{ duration: 8 + i, repeat: Infinity, delay: i * 0.5 }}
-              style={{
-                position: "absolute",
-                width: 100 + i * 30,
-                height: 100 + i * 30,
-                borderRadius: "50%",
-                background: "rgba(255,255,255,0.1)",
-                left: `${5 + i * 12}%`,
-                top: `${10 + i * 10}%`,
-                filter: "blur(40px)",
-              }}
-            />
-          ))}
-        </Box>
+      {/* ── HERO ─────────────────────────────────── */}
+      <section className="relative overflow-hidden min-h-[85vh] flex items-center">
+        {/* Animated blobs */}
+        {[
+          {
+            c: "from-amber-500/20 to-red-500/20",
+            s: 700,
+            x: "10%",
+            y: "5%",
+            d: 8,
+          },
+          {
+            c: "from-violet-500/15 to-purple-500/10",
+            s: 500,
+            x: "60%",
+            y: "30%",
+            d: 11,
+          },
+          {
+            c: "from-red-500/10 to-rose-500/10",
+            s: 400,
+            x: "30%",
+            y: "60%",
+            d: 9,
+          },
+        ].map((b, i) => (
+          <div
+            key={i}
+            className={`absolute rounded-full bg-gradient-to-br ${b.c} blur-[120px] pointer-events-none`}
+            style={{
+              width: b.s,
+              height: b.s,
+              left: b.x,
+              top: b.y,
+              animation: `float ${b.d}s ease-in-out infinite`,
+              animationDelay: `${i * 1.5}s`,
+            }}
+          />
+        ))}
 
-        <Box
-          sx={{
-            position: "relative",
-            maxWidth: 1200,
-            mx: "auto",
-            px: 4,
-            textAlign: "center",
+        {/* Grid pattern */}
+        <div
+          className="absolute inset-0 opacity-[0.03]"
+          style={{
+            backgroundImage:
+              "linear-gradient(rgba(255,255,255,0.5) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.5) 1px,transparent 1px)",
+            backgroundSize: "50px 50px",
           }}
-        >
-          <motion.div
-            initial={{ opacity: 0, y: 40 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-          >
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 2,
-                mb: 2,
-              }}
+        />
+
+        <div className="relative z-10 w-full max-w-7xl mx-auto px-6 py-24">
+          <div className="grid lg:grid-cols-2 gap-16 items-center">
+            {/* Left */}
+            <motion.div
+              initial={{ opacity: 0, y: 40 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7 }}
             >
               <motion.div
-                animate={{ scale: [1, 1.2, 1] }}
-                transition={{ duration: 1.5, repeat: Infinity }}
+                className="inline-flex items-center gap-2 bg-amber-400/10 border border-amber-400/20 px-4 py-1.5 mb-6"
+                animate={{ opacity: [0.7, 1, 0.7] }}
+                transition={{ duration: 2.5, repeat: Infinity }}
               >
-                <ThunderboltOutlined style={{ fontSize: 48, color: "white" }} />
+                <span
+                  className="w-1.5 h-1.5 rounded-full bg-red-400"
+                  style={{ animation: "pulse-ring 1.5s ease infinite" }}
+                />
+                <span className="text-[10px] tracking-[0.3em] uppercase font-bold text-amber-400">
+                  Live Flash Event
+                </span>
               </motion.div>
-              <Typography
-                variant="h2"
-                sx={{
-                  fontWeight: 900,
-                  color: "white",
-                  fontSize: { xs: "2.5rem", md: "4rem" },
-                  textShadow: "0 4px 20px rgba(0,0,0,0.3)",
-                }}
-              >
-                FLASH DEALS
-              </Typography>
-            </Box>
-            <Typography
-              variant="h5"
-              sx={{ color: "rgba(255,255,255,0.9)", fontWeight: 500, mb: 4 }}
+
+              <h1 className="font-display text-6xl md:text-8xl font-black leading-none tracking-tighter mb-4">
+                <span className="text-white">MEGA</span>
+                <br />
+                <span className="text-amber-400 italic">DEALS</span>
+                <br />
+                <span className="text-white/30 text-4xl md:text-5xl not-italic">
+                  UP TO 70% OFF
+                </span>
+              </h1>
+
+              <p className="text-white/40 text-sm leading-relaxed mb-8 max-w-md tracking-wide">
+                Handpicked flash sales, limited-time offers, and the hottest
+                deals — all in one place. Don't blink, these won't last.
+              </p>
+
+              {/* Hero Countdown */}
+              <div className="mb-8">
+                <div className="text-[9px] tracking-[0.3em] uppercase text-white/30 mb-3 font-bold">
+                  Sale Ends In
+                </div>
+                <Countdown target={heroEnd} />
+              </div>
+
+              {/* CTA buttons */}
+              <div className="flex gap-3 flex-wrap">
+                <button
+                  onClick={() => setTab("flash")}
+                  className="bg-amber-400 hover:bg-amber-300 text-black font-black text-[11px] tracking-widest uppercase px-6 py-3.5 transition-all active:scale-95"
+                >
+                  ⚡ Flash Sales
+                </button>
+                <button
+                  onClick={() => setTab("hot")}
+                  className="bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-white font-bold text-[11px] tracking-widest uppercase px-6 py-3.5 transition-all"
+                >
+                  🔥 Hot Deals
+                </button>
+              </div>
+            </motion.div>
+
+            {/* Right — collage */}
+            <motion.div
+              className="hidden lg:grid grid-cols-2 gap-2 h-[520px]"
+              initial={{ opacity: 0, x: 40 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.8, delay: 0.2 }}
             >
-              Up to{" "}
-              <span style={{ color: "#FEF08A", fontWeight: 800 }}>70% OFF</span>{" "}
-              - Limited Time Only!
-            </Typography>
+              {[
+                {
+                  img: "https://loremflickr.com/500/600/fashion,woman,model?random=401",
+                  span: "row-span-2",
+                },
+                {
+                  img: "https://loremflickr.com/500/300/fashion,accessories?random=402",
+                },
+                {
+                  img: "https://loremflickr.com/500/300/shoes,sneakers?random=403",
+                },
+              ].map((item, i) => (
+                <div
+                  key={i}
+                  className={`relative overflow-hidden ${item.span || ""}`}
+                >
+                  <img
+                    src={item.img}
+                    alt=""
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+                </div>
+              ))}
+            </motion.div>
+          </div>
+        </div>
+      </section>
 
-            {/* Main Countdown */}
-            <Box sx={{ display: "flex", justifyContent: "center" }}>
-              <CountdownTimer
-                targetDate={new Date(Date.now() + 24 * 60 * 60 * 1000)}
-              />
-            </Box>
-          </motion.div>
-        </Box>
-      </Box>
-
-      {/* Stats Bar */}
-      <Box
-        sx={{ bgcolor: "#1E293B", py: 3, borderBottom: "1px solid #334155" }}
+      {/* ── STATS BAR ────────────────────────────── */}
+      <motion.div
+        className="border-y border-white/[0.06] bg-[#0d0d1a]"
+        initial={{ opacity: 0 }}
+        whileInView={{ opacity: 1 }}
+        viewport={{ once: true }}
       >
-        <Box
-          sx={{
-            maxWidth: 1200,
-            mx: "auto",
-            px: 4,
-            display: "flex",
-            justifyContent: "space-around",
-            flexWrap: "wrap",
-            gap: 3,
-          }}
-        >
+        <div className="max-w-7xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 divide-x divide-white/[0.06]">
           {[
             {
+              num: flashDeals.length,
               label: "Flash Deals",
-              value: flashDeals.length,
-              icon: <ThunderboltOutlined />,
+              emoji: "⚡",
+              color: "text-amber-400",
             },
             {
-              label: "Hot Sales",
-              value: hotDeals.length,
-              icon: <FireOutlined />,
+              num: hotDeals.length,
+              label: "Hot Deals",
+              emoji: "🔥",
+              color: "text-red-400",
             },
             {
+              num: products.length,
               label: "Products",
-              value: products.length,
-              icon: <StarOutlined />,
+              emoji: "◈",
+              color: "text-violet-400",
             },
             {
-              label: "Saved",
-              value: `₹${dealProducts.reduce((acc, p) => acc + (p.originalPrice - p.price) * 5, 0).toLocaleString("en-IN")}`,
-              icon: <ClockCircleOutlined />,
+              num: `${dealProds.length}+`,
+              label: "On Sale",
+              emoji: "✦",
+              color: "text-emerald-400",
             },
-          ].map((stat, i) => (
+          ].map((s, i) => (
             <motion.div
-              key={i}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.1 }}
-              style={{ textAlign: "center" }}
+              key={s.label}
+              className="px-6 py-5 text-center"
+              initial={{ opacity: 0, y: 16 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.08 }}
             >
-              <Box sx={{ color: "#F59E0B", mb: 0.5 }}>{stat.icon}</Box>
-              <Typography variant="h5" sx={{ fontWeight: 800, color: "white" }}>
-                {stat.value}
-              </Typography>
-              <Typography variant="caption" sx={{ color: "#94A3B8" }}>
-                {stat.label}
-              </Typography>
+              <div className="text-lg mb-1">{s.emoji}</div>
+              <div className={`font-display text-2xl font-black ${s.color}`}>
+                {s.num}
+              </div>
+              <div className="text-[9px] tracking-[0.2em] uppercase text-white/30 mt-0.5">
+                {s.label}
+              </div>
             </motion.div>
           ))}
-        </Box>
-      </Box>
+        </div>
+      </motion.div>
 
-      {/* Tab Navigation */}
-      <Box sx={{ maxWidth: 1200, mx: "auto", px: 4, mt: 4 }}>
-        <Box
-          sx={{
-            display: "flex",
-            gap: 2,
-            overflowX: "auto",
-            pb: 2,
-            "&::-webkit-scrollbar": { display: "none" },
-          }}
-        >
-          {tabs.map((tab) => (
-            <motion.div
-              key={tab.id}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              <Button
-                onClick={() => setActiveTab(tab.id)}
-                startIcon={tab.icon}
-                sx={{
-                  bgcolor: activeTab === tab.id ? tab.color : "transparent",
-                  color: activeTab === tab.id ? "white" : "#94A3B8",
-                  border: `2px solid ${activeTab === tab.id ? tab.color : "#334155"}`,
-                  borderRadius: 3,
-                  px: 3,
-                  py: 1.5,
-                  fontWeight: 700,
-                  whiteSpace: "nowrap",
-                  "&:hover": {
-                    bgcolor: activeTab === tab.id ? tab.color : "#1E293B",
-                  },
-                }}
+      {/* ── MARQUEE ──────────────────────────────── */}
+      <div className="overflow-hidden border-b border-white/[0.04] py-3 bg-[#0a0a15]">
+        <div className="ticker-inner">
+          {[...Array(3)].flatMap((_, k) =>
+            [
+              "⚡ Flash Sale",
+              "🔥 70% Off",
+              "⏳ Limited Stock",
+              "🏆 Best Sellers",
+              "✦ Free Shipping ₹500+",
+              "💎 Premium Deals",
+            ].map((t, i) => (
+              <span
+                key={`${k}-${i}`}
+                className="text-[10px] tracking-[0.25em] uppercase text-white/20 px-8 font-bold"
               >
-                {tab.name}
-                <Chip
-                  label={tab.count}
-                  size="small"
-                  sx={{
-                    ml: 1,
-                    bgcolor: "white",
-                    color: tab.color,
-                    height: 20,
-                    fontSize: "0.7rem",
-                  }}
-                />
-              </Button>
-            </motion.div>
-          ))}
-        </Box>
-
-        {/* Deals Content */}
-        <Box sx={{ mt: 4 }}>
-          {loading ? (
-            <Box sx={{ textAlign: "center", py: 10 }}>
-              <Typography sx={{ color: "white" }}>Loading deals...</Typography>
-            </Box>
-          ) : activeTab === "flash" ? (
-            <Box>
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  mb: 3,
-                }}
-              >
-                <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                  <ThunderboltOutlined
-                    style={{ color: "#F59E0B", fontSize: 28 }}
-                  />
-                  <Typography
-                    variant="h4"
-                    sx={{ fontWeight: 800, color: "white" }}
-                  >
-                    Flash Sales
-                  </Typography>
-                </Box>
-                <Button
-                  endIcon={<RightOutlined />}
-                  sx={{ color: "#F59E0B", fontWeight: 600 }}
-                >
-                  View All
-                </Button>
-              </Box>
-              <Grid container spacing={3}>
-                {flashDeals.map((product, index) => (
-                  <Grid key={product._id} size={{ xs: 6, sm: 4, md: 3, lg: 2 }}>
-                    <FlashDealCard product={product} index={index} />
-                  </Grid>
-                ))}
-              </Grid>
-            </Box>
-          ) : activeTab === "hot" ? (
-            <Box>
-              <Box
-                sx={{ display: "flex", alignItems: "center", gap: 2, mb: 3 }}
-              >
-                <FireOutlined style={{ color: "#EF4444", fontSize: 28 }} />
-                <Typography
-                  variant="h4"
-                  sx={{ fontWeight: 800, color: "white" }}
-                >
-                  Hot Deals
-                </Typography>
-              </Box>
-              <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                {hotDeals.map((product, index) => (
-                  <HotDealCard
-                    key={product._id}
-                    product={product}
-                    index={index}
-                  />
-                ))}
-              </Box>
-            </Box>
-          ) : activeTab === "limited" ? (
-            <Box>
-              <Typography
-                variant="h4"
-                sx={{ fontWeight: 800, color: "white", mb: 3 }}
-              >
-                Limited Time Offers
-              </Typography>
-              <Grid container spacing={3}>
-                {dealProducts.slice(0, 8).map((product, index) => (
-                  <Grid key={product._id} size={{ xs: 6, md: 3 }}>
-                    <FlashDealCard product={product} index={index} />
-                  </Grid>
-                ))}
-              </Grid>
-            </Box>
-          ) : (
-            <Box>
-              <Typography
-                variant="h4"
-                sx={{ fontWeight: 800, color: "white", mb: 3 }}
-              >
-                Best Sellers
-              </Typography>
-              <Grid container spacing={3}>
-                {products.slice(0, 8).map((product, index) => (
-                  <Grid key={product._id} size={{ xs: 6, md: 3 }}>
-                    <FlashDealCard product={product} index={index} />
-                  </Grid>
-                ))}
-              </Grid>
-            </Box>
+                {t}
+              </span>
+            )),
           )}
-        </Box>
-      </Box>
-    </Box>
+        </div>
+      </div>
+
+      {/* ── TAB NAV ──────────────────────────────── */}
+      <div className="sticky top-0 z-50 bg-[#080810]/95 backdrop-blur-xl border-b border-white/[0.06]">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="flex gap-0 overflow-x-auto">
+            {TABS.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setTab(t.id)}
+                className={`flex items-center gap-2 px-5 py-4 text-[11px] tracking-[0.15em] uppercase font-bold whitespace-nowrap border-b-2 transition-all ${
+                  tab === t.id
+                    ? `${t.border} ${t.accent}`
+                    : "border-transparent text-white/30 hover:text-white/60"
+                }`}
+              >
+                <span>{t.emoji}</span>
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ── CONTENT ──────────────────────────────── */}
+      <div className="max-w-7xl mx-auto px-6 py-14">
+        <AnimatePresence mode="wait">
+          {/* ── FLASH TAB ── */}
+          {tab === "flash" && (
+            <motion.div
+              key="flash"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+            >
+              <SectionHead
+                emoji="⚡"
+                title="Flash Sales"
+                subtitle="Ends soon — grab fast"
+                accent="text-amber-400"
+                num="01"
+              />
+              {loading ? (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-px bg-white/[0.04] border border-white/[0.04]">
+                  {[...Array(8)].map((_, i) => (
+                    <CardSkel key={i} />
+                  ))}
+                </div>
+              ) : flashDeals.length === 0 ? (
+                <Empty msg="No flash deals right now. Check back soon!" />
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-px bg-white/[0.04] border border-white/[0.04]">
+                  {flashDeals.map((p, i) => (
+                    <FlashCard key={p._id} product={p} index={i} />
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {/* ── HOT TAB ── */}
+          {tab === "hot" && (
+            <motion.div
+              key="hot"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+            >
+              <SectionHead
+                emoji="🔥"
+                title="Hot Deals"
+                subtitle="Trending right now"
+                accent="text-red-400"
+                num="02"
+              />
+              <div className="grid md:grid-cols-2 gap-px bg-white/[0.04] border border-white/[0.04]">
+                {loading ? (
+                  [...Array(6)].map((_, i) => (
+                    <div key={i} className="skel h-36 bg-[#111827]" />
+                  ))
+                ) : hotDeals.length === 0 ? (
+                  <Empty msg="No hot deals right now." />
+                ) : (
+                  hotDeals.map((p, i) => (
+                    <HotRow key={p._id} product={p} index={i} />
+                  ))
+                )}
+              </div>
+            </motion.div>
+          )}
+
+          {/* ── LIMITED TAB ── */}
+          {tab === "limited" && (
+            <motion.div
+              key="limited"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+            >
+              <SectionHead
+                emoji="⏳"
+                title="Limited Time"
+                subtitle="Running out fast"
+                accent="text-violet-400"
+                num="03"
+              />
+              {loading ? (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-px bg-white/[0.04] border border-white/[0.04]">
+                  {[...Array(8)].map((_, i) => (
+                    <CardSkel key={i} />
+                  ))}
+                </div>
+              ) : limitedDels.length === 0 ? (
+                <Empty msg="No limited offers right now." />
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-px bg-white/[0.04] border border-white/[0.04]">
+                  {limitedDels.map((p, i) => (
+                    <LimitedCard key={p._id} product={p} index={i} />
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {/* ── BEST TAB ── */}
+          {tab === "best" && (
+            <motion.div
+              key="best"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+            >
+              <SectionHead
+                emoji="🏆"
+                title="Best Sellers"
+                subtitle="Customer favourites"
+                accent="text-emerald-400"
+                num="04"
+              />
+              {loading ? (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-px bg-white/[0.04] border border-white/[0.04]">
+                  {[...Array(8)].map((_, i) => (
+                    <CardSkel key={i} />
+                  ))}
+                </div>
+              ) : bestSellers.length === 0 ? (
+                <Empty msg="No products yet." />
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-px bg-white/[0.04] border border-white/[0.04]">
+                  {bestSellers.map((p, i) => (
+                    <BestCard key={p._id} product={p} index={i} rank={i + 1} />
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* ── BOTTOM CTA BANNER ────────────────────── */}
+      <section className="border-t border-white/[0.06] bg-[#0d0d1a]">
+        <div className="max-w-7xl mx-auto px-6 py-16 flex flex-col md:flex-row items-center justify-between gap-8">
+          <div>
+            <div className="text-[10px] tracking-[0.3em] uppercase text-amber-400/70 mb-2 font-bold">
+              Never Miss a Deal
+            </div>
+            <h3 className="font-display text-3xl font-black text-white leading-tight">
+              Get <em className="text-amber-400">exclusive</em> alerts
+              <br />
+              before they go live.
+            </h3>
+          </div>
+          <div className="flex w-full md:w-auto max-w-md">
+            <input
+              type="email"
+              placeholder="your@email.com"
+              className="flex-1 bg-white/[0.04] border border-white/[0.08] px-4 py-3 text-sm text-white placeholder-white/20 outline-none focus:border-amber-400/40 transition-colors min-w-0"
+            />
+            <button className="bg-amber-400 hover:bg-amber-300 text-black font-black text-[10px] tracking-widest uppercase px-5 py-3 whitespace-nowrap transition-colors">
+              Notify Me →
+            </button>
+          </div>
+        </div>
+      </section>
+    </div>
   );
 };
+
+const Empty = ({ msg }) => (
+  <div className="border border-white/[0.06] bg-[#0d0d1a] py-20 text-center">
+    <div className="text-4xl mb-4 opacity-20">◎</div>
+    <p className="text-sm text-white/30 tracking-wide">{msg}</p>
+  </div>
+);
 
 export default Deals;

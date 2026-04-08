@@ -123,4 +123,19 @@ const getAnalytics = async (req, res) => {
   }
 };
 
-module.exports = { getAnalytics };
+const getAllOrders = async (req, res) => {
+  try {
+    const orders = await Order.find({})
+      .populate("user", "name email")
+      .populate("orderItems.product", "name images")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    res.json({ success: true, orders });
+  } catch (error) {
+    console.error("Get all orders error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+module.exports = { getAnalytics, getAllOrders };
